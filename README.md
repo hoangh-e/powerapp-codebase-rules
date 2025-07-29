@@ -1,0 +1,1 @@
+# powerapp-codebase-rules
