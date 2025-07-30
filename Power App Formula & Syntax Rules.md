@@ -523,8 +523,7 @@ OnSelect: |
       Y: =40
       Visible: =true
       
-      # LAYOUT Section
-      Columns: =3                   # Number of columns
+      # BEHAVIOR Section
       AcceptsFocus: =false          # Focus behavior
     Children:
       # TypedDataCard với Variant: ClassicTextualView (read-only)
@@ -564,8 +563,8 @@ OnSelect: |
       Visible: =true
       AcceptsFocus: =false         # Focus behavior
       
-      # LAYOUT Section
-      Columns: =3                  # Number of columns
+      # BEHAVIOR Section
+      AcceptsFocus: =false         # Focus behavior
     Children:
       # TypedDataCard với Variant: ClassicTextualEdit (editable)
 ```
@@ -635,9 +634,7 @@ Properties:
 
 ```yaml
 Properties:
-  # LAYOUT OPTIONS
-  Columns: =3                     # Number of columns (1-3)
-  Layout: =Layout.Vertical        # Vertical (default) hoặc Horizontal
+  # NOTE: Columns property không được hỗ trợ cho Form/FormViewer controls
   
   # DESIGN STYLING
   BorderColor: =RGBA(245, 245, 245, 1)
@@ -1200,6 +1197,9 @@ Form4.departmentID_DataCard3.DataCardValue27.SelectedItems
 ### ⚠️ PA1011 ERROR - Missing Layout Property
 **CRITICAL**: Layout property PHẢI nằm ngoài Properties section, nếu không sẽ gây PA1011 error:
 
+### ⚠️ PA2108 ERROR - Invalid Columns Property
+**CRITICAL**: Form/FormViewer controls KHÔNG hỗ trợ Columns property, sẽ gây PA2108 error:
+
 ```yaml
 # ERROR: PA1011 : The keyword 'Layout' is required but is missing or empty.
 
@@ -1227,6 +1227,41 @@ Form4.departmentID_DataCard3.DataCardValue27.SelectedItems
 - MyFormViewer:
     Control: FormViewer
     Layout: Vertical            # CORRECT - Outside Properties
+    Properties:
+      DataSource: =User_1
+```
+
+```yaml
+# ERROR: PA2108 : Unknown property 'Columns' for control type 'Form' and variant 'Classic'
+# ERROR: PA2108 : Unknown property 'Columns' for control type 'FormViewer'
+
+# ❌ SAI - Columns property không được hỗ trợ
+- MyForm:
+    Control: Form
+    Variant: Classic
+    Layout: Vertical
+    Properties:
+      DataSource: =User_1
+      Columns: =3               # ERROR - PA2108: Unknown property
+
+- MyFormViewer:
+    Control: FormViewer
+    Layout: Vertical
+    Properties:
+      DataSource: =User_1
+      Columns: =3               # ERROR - PA2108: Unknown property
+
+# ✅ ĐÚNG - Không sử dụng Columns property
+- MyForm:
+    Control: Form
+    Variant: Classic
+    Layout: Vertical            # Layout controls form direction only
+    Properties:
+      DataSource: =User_1
+
+- MyFormViewer:
+    Control: FormViewer
+    Layout: Vertical            # Layout controls form direction only
     Properties:
       DataSource: =User_1
 ```
@@ -1352,7 +1387,43 @@ Children:
       Control: Label            # Correct for view
 ```
 
-### 6. Missing Update Property for Edit Cards
+### 6. Invalid Columns Property - PA2108 Error
+```yaml
+# ❌ SAI - Columns property không được hỗ trợ
+- MyForm:
+    Control: Form
+    Variant: Classic
+    Layout: Vertical
+    Properties:
+      DataSource: =User_1
+      Columns: =3                 # ERROR - PA2108: Unknown property 'Columns'
+
+- MyFormViewer:
+    Control: FormViewer
+    Layout: Vertical
+    Properties:
+      DataSource: =User_1
+      Columns: =3                 # ERROR - PA2108: Unknown property 'Columns'
+
+# ERROR MESSAGE: PA2108 : Unknown property 'Columns' for control type 'Form' and variant 'Classic'
+# ERROR MESSAGE: PA2108 : Unknown property 'Columns' for control type 'FormViewer'
+
+# ✅ ĐÚNG - Không sử dụng Columns property
+- MyForm:
+    Control: Form
+    Variant: Classic
+    Layout: Vertical
+    Properties:
+      DataSource: =User_1         # Columns property removed
+
+- MyFormViewer:
+    Control: FormViewer
+    Layout: Vertical
+    Properties:
+      DataSource: =User_1         # Columns property removed
+```
+
+### 7. Missing Update Property for Edit Cards
 ```yaml
 # ❌ SAI - Edit DataCard missing Update property
 - EditDataCard:
@@ -1406,7 +1477,12 @@ Children:
 - Implement proper form validation before submission
 - Handle form events (OnSuccess, OnFailure, OnReset) appropriately
 
-### 6. Field Access Patterns
+### 6. Avoid Unsupported Properties
+- **NEVER** use `Columns` property on Form or FormViewer (causes PA2108 error)
+- Layout is controlled by the `Layout` property (Vertical/Horizontal only)
+- Form controls have limited layout customization compared to other containers
+
+### 7. Field Access Patterns
 - Use full path: `FormName.DataCardName.DataCardValueName.Property`
 - Different patterns cho TextInput (.Text) vs ComboBox (.Selected)
 - Validate all required fields before form submission
