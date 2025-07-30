@@ -187,6 +187,12 @@ Control: PowerBI
 - `OnSelect` - GroupContainer không hỗ trợ event properties
 - `OnClick` - GroupContainer không hỗ trợ event properties
 - `BorderRadius` - GroupContainer không hỗ trợ BorderRadius
+- `HoverFill` - GroupContainer không hỗ trợ hover states
+- `HoverColor` - GroupContainer không hỗ trợ hover states
+- `HoverBorderColor` - GroupContainer không hỗ trợ hover states
+- `PressedFill` - GroupContainer không hỗ trợ pressed states
+- `PressedColor` - GroupContainer không hỗ trợ pressed states
+- `PressedBorderColor` - GroupContainer không hỗ trợ pressed states
 
 ```yaml
 # ❌ SAI - GroupContainer với event properties
