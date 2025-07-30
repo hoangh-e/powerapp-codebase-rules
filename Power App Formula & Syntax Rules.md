@@ -477,3 +477,891 @@ OnSelect: |
 ```
 
 ---
+
+## 8. POWER APP FORM RULES - QUY TẮC FORM ĐẦY ĐỦ
+
+> **CRITICAL**: Quy tắc chi tiết về Form controls (FormViewer, Form) và TypedDataCard trong Power App.
+
+---
+
+## 📋 MỤC LỤC FORM RULES
+1. [FormViewer vs Form Controls](#81-formviewer-vs-form-controls)
+2. [Form Properties Complete](#82-form-properties-complete)
+3. [TypedDataCard Structure](#83-typeddatacard-structure)
+4. [DataCard Variants](#84-datacard-variants)
+5. [Form Event Properties](#85-form-event-properties)
+6. [SharePoint Data Binding](#86-sharepoint-data-binding)
+7. [Form Field References](#87-form-field-references)
+
+---
+
+## 8.1 FORMVIEWER VS FORM CONTROLS
+
+### 8.1.1 FormViewer Control - READ-ONLY Display
+**CRITICAL**: FormViewer dùng để HIỂN THỊ data, không thể edit:
+
+```yaml
+# ✅ ĐÚNG - FormViewer cho read-only display
+- FormViewer1:
+    Control: FormViewer
+    Properties:
+      # DATA Section
+      DataSource: =User_1           # SharePoint table reference
+      Item: =varSelectedRecord      # Record để display (optional)
+      
+      # DESIGN Section  
+      BorderColor: =RGBA(245, 245, 245, 1)
+      BorderStyle: =BorderStyle.Solid
+      BorderThickness: =0
+      Fill: =RGBA(0, 0, 0, 0)
+      FocusedBorderColor: =Self.BorderColor
+      FocusedBorderThickness: =4
+      Height: =500
+      Width: =800
+      X: =40
+      Y: =40
+      Visible: =true
+      
+      # LAYOUT Section
+      Layout: =Layout.Vertical      # REQUIRED Layout property
+      Columns: =3                   # Number of columns
+      AcceptsFocus: =false          # Focus behavior
+    Children:
+      # TypedDataCard với Variant: ClassicTextualView (read-only)
+```
+
+### 8.1.2 Form Control - EDITABLE Forms
+**CRITICAL**: Form control dùng để EDIT/CREATE data:
+
+```yaml
+# ✅ ĐÚNG - Form cho edit/create operations
+- Form4:
+    Control: Form
+    Variant: Classic              # REQUIRED Variant property
+    Properties:
+      # ACTION Section
+      OnFailure: =false            # Action when form submission fails
+      OnReset: =false              # Action when form is reset
+      OnSuccess: =false            # Action when form submission succeeds
+      
+      # DATA Section
+      DataSource: =User_1          # SharePoint table reference
+      DefaultMode: =FormMode.Edit  # Edit, New, or View mode
+      Item: =varSelectedRecord     # Record để edit (cho Edit mode)
+      
+      # DESIGN Section
+      BorderColor: =RGBA(245, 245, 245, 1)
+      BorderStyle: =BorderStyle.Solid
+      BorderThickness: =0
+      Fill: =RGBA(0, 0, 0, 0)
+      FocusedBorderColor: =Self.BorderColor
+      FocusedBorderThickness: =4
+      Height: =500
+      Width: =800
+      X: =80
+      Y: =80
+      Visible: =true
+      AcceptsFocus: =false         # Focus behavior
+      
+      # LAYOUT Section
+      Layout: =Layout.Vertical     # REQUIRED Layout property
+      Columns: =3                  # Number of columns
+    Children:
+      # TypedDataCard với Variant: ClassicTextualEdit (editable)
+```
+
+### 8.1.3 Form Control Decision Rules
+**KHI NÀO SỬ DỤNG:**
+
+| Scenario | Control | Variant | Purpose |
+|----------|---------|---------|---------|
+| **View Details** | FormViewer | N/A | Read-only display của record |
+| **Edit Record** | Form | Classic | Edit existing record |
+| **Create Record** | Form | Classic | Create new record |
+| **Approval Workflow** | FormViewer | N/A | View-only cho approval |
+
+---
+
+## 8.2 FORM PROPERTIES COMPLETE
+
+### 8.2.1 Form Required Properties - CRITICAL
+**BẮT BUỘC**: Form PHẢI có những properties này:
+
+```yaml
+Properties:
+  # REQUIRED CORE PROPERTIES
+  DataSource: =SharePointTable    # REQUIRED - Data source
+  Variant: =Variant.Classic       # REQUIRED - Form variant
+  Layout: =Layout.Vertical        # REQUIRED - Layout direction
+  
+  # POSITION & SIZE
+  X: =position                    # Horizontal position
+  Y: =position                    # Vertical position
+  Width: =800                     # Form width
+  Height: =500                    # Form height
+  
+  # FORM MODE (cho Form control only)
+  DefaultMode: =FormMode.Edit     # Edit/New/View mode
+  Item: =varSelectedRecord        # Record cho Edit mode
+```
+
+### 8.2.2 FormViewer Required Properties - CRITICAL
+**BẮT BUỘC**: FormViewer PHẢI có những properties này:
+
+```yaml
+Properties:
+  # REQUIRED CORE PROPERTIES
+  DataSource: =SharePointTable    # REQUIRED - Data source
+  Layout: =Layout.Vertical        # REQUIRED - Layout direction
+  
+  # POSITION & SIZE
+  X: =position                    # Horizontal position
+  Y: =position                    # Vertical position
+  Width: =800                     # Form width
+  Height: =500                    # Form height
+  
+  # DISPLAY PROPERTIES
+  Item: =varSelectedRecord        # Record để display (optional)
+```
+
+### 8.2.3 Common Form Properties
+**OPTIONAL**: Các properties có thể customize:
+
+```yaml
+Properties:
+  # LAYOUT OPTIONS
+  Columns: =3                     # Number of columns (1-3)
+  Layout: =Layout.Vertical        # Vertical (default) hoặc Horizontal
+  
+  # DESIGN STYLING
+  BorderColor: =RGBA(245, 245, 245, 1)
+  BorderStyle: =BorderStyle.Solid
+  BorderThickness: =0
+  Fill: =RGBA(0, 0, 0, 0)        # Transparent background
+  FocusedBorderColor: =Self.BorderColor
+  FocusedBorderThickness: =4
+  
+  # BEHAVIOR
+  AcceptsFocus: =false           # Whether form accepts focus
+  Visible: =true                 # Form visibility
+```
+
+---
+
+## 8.3 TYPEDDATACARD STRUCTURE
+
+### 8.3.1 TypedDataCard - BẮT BUỘC Structure
+**CRITICAL**: Mọi field trong Form/FormViewer PHẢI sử dụng TypedDataCard:
+
+```yaml
+# ✅ ĐÚNG - TypedDataCard structure
+- fullname_DataCard3:
+    Control: TypedDataCard
+    Variant: ClassicTextualView    # hoặc ClassicTextualEdit
+    IsLocked: true                 # ALWAYS true
+    Properties:
+      BorderColor: =RGBA(245, 245, 245, 1)
+      DataField: ="fullname"       # Field name trong SharePoint
+      Default: =ThisItem.fullname  # Default value binding
+      DisplayName: =DataSourceInfo([@User_1],DataSourceInfo.DisplayName,'fullname')
+      Required: =true              # hoặc false
+      Width: =266
+      X: =0
+      Y: =0
+      
+      # FOR EDIT CARDS ONLY
+      Update: =DataCardValue23.Text           # Value để update (Edit mode)
+      MaxLength: =DataSourceInfo([@User_1], DataSourceInfo.MaxLength, 'fullname')
+    Children:
+      # Label cho field name (DataCardKey)
+      # Control cho field value (DataCardValue) 
+      # Error message label (ErrorMessage)
+      # Required indicator (StarVisible)
+```
+
+### 8.3.2 TypedDataCard Required Properties
+**BẮT BUỘC**: Mọi TypedDataCard PHẢI có những properties này:
+
+```yaml
+Properties:
+  BorderColor: =RGBA(245, 245, 245, 1)  # Border styling
+  DataField: ="field_name"               # SharePoint field name
+  Default: =ThisItem.field_name          # Default value
+  DisplayName: =DataSourceInfo([@Table],DataSourceInfo.DisplayName,'field')
+  Required: =true/false                  # Field requirement
+  Width: =266                           # Card width
+  X: =position                          # X position
+  Y: =position                          # Y position
+  
+  # FOR EDIT VARIANTS ONLY
+  Update: =DataCardValue.Text           # Update value cho edit mode
+  MaxLength: =DataSourceInfo([@Table], DataSourceInfo.MaxLength, 'field')
+```
+
+### 8.3.3 TypedDataCard Children Structure
+**CRITICAL**: Mọi TypedDataCard PHẢI có 4 children controls:
+
+```yaml
+Children:
+  # 1. DataCardKey - Field label (REQUIRED)
+  - DataCardKey15:
+      Control: Label
+      MetadataKey: FieldName
+      Properties:
+        AutoHeight: =true
+        BorderColor: =RGBA(0, 0, 0, 0)
+        BorderStyle: =BorderStyle.None
+        BorderThickness: =2
+        Color: =RGBA(50, 49, 48, 1)
+        DisabledBorderColor: =RGBA(0, 0, 0, 0)
+        DisabledColor: =RGBA(161, 159, 157, 1)
+        FocusedBorderThickness: =4
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =34
+        PaddingLeft: =0
+        Text: =Parent.DisplayName
+        Width: =Parent.Width - 60
+        Wrap: =false
+        X: =30
+        Y: =10
+
+  # 2. DataCardValue - Field input/display (REQUIRED)  
+  - DataCardValue15:
+      Control: Label  # hoặc Classic/TextInput, Classic/ComboBox
+      MetadataKey: FieldValue
+      Properties:
+        # Properties depend on control type và variant
+
+  # 3. ErrorMessage - Validation errors (REQUIRED)
+  - ErrorMessage15:
+      Control: Label
+      MetadataKey: ErrorMessage
+      Properties:
+        AutoHeight: =true
+        BorderColor: =RGBA(0, 0, 0, 0)
+        BorderStyle: =BorderStyle.None
+        BorderThickness: =2
+        Color: =RGBA(168, 0, 0, 1)
+        DisabledBorderColor: =RGBA(0, 0, 0, 0)
+        DisabledColor: =RGBA(168, 0, 0, 1)
+        FocusedBorderThickness: =4
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =10
+        Live: =Live.Assertive
+        PaddingBottom: =0
+        PaddingLeft: =0
+        PaddingRight: =0
+        PaddingTop: =0
+        Text: =Parent.Error
+        Visible: =Parent.DisplayMode=DisplayMode.Edit
+        Width: =Parent.Width - 60
+        X: =30
+        Y: =DataCardValue15.Y + DataCardValue15.Height
+
+  # 4. StarVisible - Required indicator (REQUIRED)
+  - StarVisible15:
+      Control: Label
+      MetadataKey: FieldRequired
+      Properties:
+        Align: =Align.Center
+        BorderColor: =RGBA(0, 0, 0, 0)
+        BorderStyle: =BorderStyle.None
+        BorderThickness: =2
+        Color: =RGBA(50, 49, 48, 1)
+        DisabledBorderColor: =RGBA(0, 0, 0, 0)
+        DisabledColor: =RGBA(161, 159, 157, 1)
+        FocusedBorderThickness: =4
+        Font: =Font.'Segoe UI'
+        FontWeight: =FontWeight.Semibold
+        Height: =DataCardKey15.Height
+        PaddingLeft: =0
+        Text: ="*"
+        Visible: =And(Parent.Required, Parent.DisplayMode=DisplayMode.Edit)
+        Width: =30
+        Wrap: =false
+        Y: =DataCardKey15.Y
+```
+
+---
+
+## 8.4 DATACARD VARIANTS
+
+### 8.4.1 FormViewer DataCard Variants (Read-Only)
+**CHỈ** sử dụng những variants này cho FormViewer:
+
+```yaml
+# Text fields - read-only display
+Variant: ClassicTextualView
+
+# ComboBox fields - read-only display  
+Variant: ClassicComboBoxView
+```
+
+### 8.4.2 Form DataCard Variants (Editable)
+**CHỈ** sử dụng những variants này cho Form:
+
+```yaml
+# Text fields - editable input
+Variant: ClassicTextualEdit
+
+# ComboBox fields - editable selection
+Variant: ClassicComboBoxEdit
+```
+
+### 8.4.3 DataCard Control Types by Variant
+**CRITICAL**: Control types PHẢI match variant:
+
+```yaml
+# ClassicTextualView - Read-only text display
+- DataCardValue:
+    Control: Label
+    MetadataKey: FieldValue
+    Properties:
+      AutoHeight: =true
+      BorderColor: =RGBA(0, 0, 0, 0)
+      BorderStyle: =BorderStyle.None
+      BorderThickness: =2
+      Color: =RGBA(50, 49, 48, 1)
+      DisabledBorderColor: =RGBA(0, 0, 0, 0)
+      DisabledColor: =RGBA(161, 159, 157, 1)
+      DisplayMode: =Parent.DisplayMode
+      FocusedBorderThickness: =4
+      Font: =Font.'Segoe UI'
+      Height: =27
+      PaddingLeft: =0
+      PaddingRight: =0
+      PaddingTop: =0
+      Text: =Parent.Default
+      Width: =Parent.Width - 60
+      X: =30
+      Y: =DataCardKey.Y + DataCardKey.Height + 5
+
+# ClassicTextualEdit - Editable text input
+- DataCardValue:
+    Control: Classic/TextInput
+    MetadataKey: FieldValue
+    Properties:
+      BorderColor: =If(IsBlank(Parent.Error), Parent.BorderColor, Color.Red)
+      Color: =RGBA(50, 49, 48, 1)
+      Default: =Parent.Default
+      DelayOutput: =true
+      DisabledBorderColor: =RGBA(0, 0, 0, 0)
+      DisabledColor: =RGBA(161, 159, 157, 1)
+      DisabledFill: =RGBA(242, 242, 241, 0)
+      DisplayMode: =Parent.DisplayMode
+      Font: =Font.'Segoe UI'
+      HoverBorderColor: =RGBA(16, 110, 190, 1)
+      HoverColor: =RGBA(50, 49, 48, 1)
+      HoverFill: =RGBA(255, 255, 255, 1)
+      MaxLength: =Parent.MaxLength
+      PaddingLeft: =5
+      PressedBorderColor: =RGBA(0, 120, 212, 1)
+      PressedColor: =RGBA(50, 49, 48, 1)
+      PressedFill: =RGBA(255, 255, 255, 1)
+      RadiusBottomLeft: =0
+      RadiusBottomRight: =0
+      RadiusTopLeft: =0
+      RadiusTopRight: =0
+      Tooltip: =Parent.DisplayName
+      Width: =Parent.Width - 60
+      X: =30
+      Y: =DataCardKey.Y + DataCardKey.Height + 5
+
+# ClassicComboBoxView - Read-only selection display (using Label)
+- DataCardValue:
+    Control: Label
+    MetadataKey: FieldValue
+    Properties:
+      Text: =Parent.Default
+      # Similar properties như ClassicTextualView
+
+# ClassicComboBoxEdit - Editable selection
+- DataCardValue:
+    Control: Classic/ComboBox
+    MetadataKey: FieldValue
+    Properties:
+      BorderColor: =If(IsBlank(Parent.Error), Parent.BorderColor, Color.Red)
+      ChevronBackground: =RGBA(245, 245, 245, 1)
+      ChevronDisabledBackground: =RGBA(242, 242, 241, 0)
+      ChevronDisabledFill: =RGBA(161, 159, 157, 1)
+      ChevronFill: =RGBA(50, 49, 48, 1)
+      ChevronHoverBackground: =RGBA(245, 245, 245, 1)
+      ChevronHoverFill: =RGBA(50, 49, 48, 1)
+      Color: =RGBA(50, 49, 48, 1)
+      DefaultSelectedItems: =Parent.Default
+      DisabledBorderColor: =RGBA(0, 0, 0, 0)
+      DisabledColor: =RGBA(161, 159, 157, 1)
+      DisabledFill: =RGBA(242, 242, 241, 0)
+      DisplayFields: =["Value"]           # hoặc ["Claims"] cho lookup fields
+      DisplayMode: =Parent.DisplayMode
+      Fill: =RGBA(245, 245, 245, 1)
+      Font: =Font.'Segoe UI'
+      HoverBorderColor: =RGBA(16, 110, 190, 1)
+      HoverColor: =RGBA(50, 49, 48, 1)
+      HoverFill: =RGBA(245, 245, 245, 1)
+      Items: =Choices([@User_1].'departmentID')  # SharePoint choices
+      PaddingLeft: =If(Self.DisplayMode = DisplayMode.Edit, 5, 0)
+      PressedBorderColor: =RGBA(16, 110, 190, 1)
+      PressedColor: =RGBA(255, 255, 255, 1)
+      PressedFill: =RGBA(0, 120, 212, 1)
+      SearchFields: =["Value"]            # hoặc ["Claims"] cho lookup fields
+      SelectMultiple: =false
+      SelectionColor: =RGBA(255, 255, 255, 1)
+      SelectionFill: =RGBA(0, 120, 212, 1)
+      Tooltip: =Parent.DisplayName
+      Width: =Parent.Width - 60
+      X: =30
+      Y: =DataCardKey.Y + DataCardKey.Height + 5
+```
+
+---
+
+## 8.5 FORM EVENT PROPERTIES
+
+### 8.5.1 Form Action Properties - CRITICAL
+**CRITICAL**: Form control có những event properties này:
+
+```yaml
+# Form Events (chỉ cho Form control, KHÔNG cho FormViewer)
+Properties:
+  OnFailure: =false               # Action when form submission fails
+  OnReset: =false                 # Action when form is reset  
+  OnSuccess: =false               # Action when form submission succeeds
+
+# Example với actual logic
+Properties:
+  OnFailure: |
+    =Notify("Có lỗi khi lưu dữ liệu", NotificationType.Error)
+  OnReset: |
+    =Set(varFormMode, FormMode.New); Set(varSelectedRecord, Blank())
+  OnSuccess: |
+    =Notify("Đã lưu thành công!", NotificationType.Success); Navigate(ListScreen)
+```
+
+### 8.5.2 Form Mode Management
+**CRITICAL**: Form modes và cách sử dụng:
+
+```yaml
+# Form Mode Values
+DefaultMode: =FormMode.Edit      # Edit existing record
+DefaultMode: =FormMode.New       # Create new record  
+DefaultMode: =FormMode.View      # View-only mode
+
+# Form Mode với Item binding
+Properties:
+  DefaultMode: =FormMode.Edit
+  Item: =varSelectedRecord       # Record để edit
+
+Properties:
+  DefaultMode: =FormMode.New
+  Item: =Defaults(User_1)        # Defaults cho new record
+
+Properties:
+  DefaultMode: =FormMode.View
+  Item: =varSelectedRecord       # Record để view
+```
+
+---
+
+## 8.6 SHAREPOINT DATA BINDING
+
+### 8.6.1 SharePoint Field References
+**CRITICAL**: Proper SharePoint field binding patterns:
+
+```yaml
+# ✅ ĐÚNG - SharePoint field binding
+Properties:
+  DataField: ="fullname"                    # SharePoint logical field name
+  Default: =ThisItem.fullname               # Current record value
+  DisplayName: =DataSourceInfo([@User_1],DataSourceInfo.DisplayName,'fullname')
+  
+# ComboBox cho lookup fields
+Properties:
+  DataField: ="departmentID"
+  Default: =ThisItem.departmentID
+  Items: =Choices([@User_1].'departmentID') # SharePoint choices
+  DisplayFields: =["Value"]
+  SearchFields: =["Value"]
+
+# Special SharePoint fields
+Properties:
+  DataField: ="Title"                       # SharePoint Title field
+  Default: =ThisItem.userID                 # Custom field mapped to Title
+  DataField: ="{ContentType}"              # SharePoint Content Type
+  Default: =ThisItem.'Content type'
+  Items: =Choices([@User_1].'{ContentType}')
+  DisplayFields: =["Id"]
+  SearchFields: =["Id"]
+```
+
+### 8.6.2 SharePoint System Fields
+**AUTOMATIC**: SharePoint system fields auto-generated:
+
+```yaml
+# System fields - auto-populated by SharePoint
+- Created_DataCard:
+    Control: TypedDataCard
+    Variant: ClassicTextualView
+    Properties:
+      DataField: ="Created"
+      Default: =ThisItem.Created
+      DisplayName: =DataSourceInfo([@User_1],DataSourceInfo.DisplayName,'Created')
+      Required: =false              # System fields not required
+
+- Modified_DataCard:
+    Control: TypedDataCard
+    Variant: ClassicTextualView
+    Properties:
+      DataField: ="Modified" 
+      Default: =ThisItem.Modified
+      DisplayName: =DataSourceInfo([@User_1],DataSourceInfo.DisplayName,'Modified')
+      Required: =false
+
+- Author_DataCard:
+    Control: TypedDataCard
+    Variant: ClassicComboBoxView
+    Properties:
+      DataField: ="Author"
+      Default: =ThisItem.'Created By'
+      DisplayName: =DataSourceInfo([@User_1],DataSourceInfo.DisplayName,'Author')
+      Items: =Choices([@User_1].'Author')
+      Required: =false
+
+- Editor_DataCard:
+    Control: TypedDataCard
+    Variant: ClassicComboBoxView
+    Properties:
+      DataField: ="Editor"
+      Default: =ThisItem.'Modified By'
+      DisplayName: =DataSourceInfo([@User_1],DataSourceInfo.DisplayName,'Editor') 
+      Items: =Choices([@User_1].'Editor')
+      Required: =false
+```
+
+### 8.6.3 SharePoint Field Mapping Patterns
+**CRITICAL**: Common SharePoint field mappings:
+
+```yaml
+# Text Fields
+DataField: ="fullname"     → Default: =ThisItem.fullname
+DataField: ="email"        → Default: =ThisItem.email
+DataField: ="jobTitle"     → Default: =ThisItem.jobTitle
+DataField: ="phone"        → Default: =ThisItem.phone
+
+# Number Fields  
+DataField: ="departmentID" → Default: =ThisItem.departmentID
+
+# Title Field (Special)
+DataField: ="Title"        → Default: =ThisItem.userID
+
+# Lookup Fields
+DataField: ="departmentID" → Items: =Choices([@User_1].'departmentID')
+                           → DisplayFields: =["Value"]
+                           → SearchFields: =["Value"]
+
+# Person Fields  
+DataField: ="Author"       → Items: =Choices([@User_1].'Author')
+                           → DisplayFields: =["Claims"]
+                           → SearchFields: =["Claims"]
+
+# Content Type (Special)
+DataField: ="{ContentType}" → Items: =Choices([@User_1].'{ContentType}')
+                            → DisplayFields: =["Id"]
+                            → SearchFields: =["Id"]
+```
+
+---
+
+## 8.7 FORM FIELD REFERENCES
+
+### 8.7.1 Field Access Patterns
+**CRITICAL**: Correct patterns để access form field values:
+
+```yaml
+# ✅ ĐÚNG - Form field value access pattern
+FormName.DataCardName.DataCardValueName.Property
+
+# Examples:
+Form4.fullname_DataCard4.DataCardValue23.Text           # TextInput value
+Form4.email_DataCard4.DataCardValue24.Text              # TextInput value
+Form4.departmentID_DataCard3.DataCardValue27.Selected   # ComboBox selected
+Form4.departmentID_DataCard3.DataCardValue27.Selected.Value  # ComboBox value
+
+# Submit button example
+- SubmitButton:
+    Control: Classic/Button
+    Properties:
+      OnSelect: |
+        =Patch(User_1, Defaults(User_1), {
+          fullname: Form4.fullname_DataCard4.DataCardValue23.Text,
+          email: Form4.email_DataCard4.DataCardValue24.Text,
+          jobTitle: Form4.jobTitle_DataCard4.DataCardValue25.Text,
+          phone: Form4.phone_DataCard4.DataCardValue26.Text,
+          departmentID: Form4.departmentID_DataCard3.DataCardValue27.Selected.Value
+        })
+```
+
+### 8.7.2 Form Validation Patterns
+**CRITICAL**: Form-level validation patterns:
+
+```yaml
+# ✅ ĐÚNG - Form validation before submit
+OnSelect: |
+  =If(And(
+    Not(IsBlank(Form4.fullname_DataCard4.DataCardValue23.Text)),
+    Not(IsBlank(Form4.email_DataCard4.DataCardValue24.Text)),
+    IsMatch(Form4.email_DataCard4.DataCardValue24.Text, Email),
+    Not(IsBlank(Form4.jobTitle_DataCard4.DataCardValue25.Text)),
+    Not(IsBlank(Form4.phone_DataCard4.DataCardValue26.Text))
+  ),
+    // Submit logic
+    SubmitForm(Form4),
+    // Validation error
+    Notify("Vui lòng điền đầy đủ thông tin hợp lệ", NotificationType.Warning)
+  )
+
+# ✅ ĐÚNG - Individual field validation
+BorderColor: =If(
+  And(
+    Not(IsBlank(Self.Text)),
+    IsMatch(Self.Text, Email)
+  ),
+  RGBA(16, 124, 16, 1),      # Green cho valid
+  If(
+    IsBlank(Self.Text),
+    RGBA(200, 200, 200, 1),   # Gray cho empty
+    RGBA(220, 53, 69, 1)      # Red cho invalid
+  )
+)
+```
+
+### 8.7.3 Form State Management
+**CRITICAL**: Form mode và state management:
+
+```yaml
+# ✅ ĐÚNG - Form mode management
+Properties:
+  DefaultMode: =FormMode.New     # New record mode
+  DefaultMode: =FormMode.Edit    # Edit record mode
+  DefaultMode: =FormMode.View    # View-only mode
+  
+  Item: =varSelectedRecord       # Record được edit
+  Item: =Defaults(User_1)        # New record defaults
+
+# Form operations
+OnSelect: |
+  =SubmitForm(Form4)             # Submit form
+
+OnSelect: |
+  =ResetForm(Form4)              # Reset form
+
+OnSelect: |
+  =EditForm(Form4)               # Switch to edit mode
+
+OnSelect: |
+  =NewForm(Form4)                # Switch to new mode
+
+# Form reset pattern
+OnReset: |
+  =Set(varSelectedRecord, Blank());
+  Set(varFormMode, FormMode.New);
+  Set(varErrorMessage, "")
+```
+
+### 8.7.4 FormViewer vs Form Field Access
+**CRITICAL**: Different patterns cho FormViewer vs Form:
+
+```yaml
+# FormViewer - Read-only access
+FormViewer1.fullname_DataCard3.DataCardValue15.Text  # Always Label.Text
+
+# Form - Edit/Input access  
+Form4.fullname_DataCard4.DataCardValue23.Text        # TextInput.Text
+Form4.fullname_DataCard4.DataCardValue23.Default     # TextInput.Default
+
+# ComboBox trong Form
+Form4.departmentID_DataCard3.DataCardValue27.Selected
+Form4.departmentID_DataCard3.DataCardValue27.Selected.Value
+Form4.departmentID_DataCard3.DataCardValue27.SelectedItems
+```
+
+---
+
+## 🚨 CRITICAL FORM ERRORS TO AVOID
+
+### 1. Missing Required Properties
+```yaml
+# ❌ SAI - Form missing required properties
+- MyForm:
+    Control: Form
+    Properties:
+      DataSource: =User_1        # ERROR - Missing Variant và Layout
+
+# ✅ ĐÚNG - Complete required properties
+- MyForm:
+    Control: Form
+    Variant: Classic            # REQUIRED
+    Properties:
+      DataSource: =User_1
+      Layout: =Layout.Vertical   # REQUIRED
+      DefaultMode: =FormMode.Edit
+```
+
+### 2. Wrong Variant Usage
+```yaml
+# ❌ SAI - Wrong variant cho form type
+FormViewer:
+  Children:
+    - DataCard:
+        Variant: ClassicTextualEdit  # ERROR - FormViewer should use View variants
+
+Form:
+  Children:
+    - DataCard:
+        Variant: ClassicTextualView  # ERROR - Form should use Edit variants
+
+# ✅ ĐÚNG - Correct variants
+FormViewer:
+  Children:
+    - DataCard:
+        Variant: ClassicTextualView  # Correct for read-only
+
+Form:
+  Children:
+    - DataCard:
+        Variant: ClassicTextualEdit  # Correct for editable
+```
+
+### 3. Missing Required DataCard Properties
+```yaml
+# ❌ SAI - TypedDataCard missing required properties
+- MyDataCard:
+    Control: TypedDataCard
+    Variant: ClassicTextualEdit
+    Properties:
+      DataField: ="fullname"     # ERROR - Missing other required properties
+
+# ✅ ĐÚNG - Complete required properties
+- MyDataCard:
+    Control: TypedDataCard
+    Variant: ClassicTextualEdit
+    IsLocked: true              # REQUIRED
+    Properties:
+      BorderColor: =RGBA(245, 245, 245, 1)
+      DataField: ="fullname"    # REQUIRED
+      Default: =ThisItem.fullname  # REQUIRED
+      DisplayName: =DataSourceInfo([@User_1],DataSourceInfo.DisplayName,'fullname')
+      Required: =true           # REQUIRED
+      Update: =DataCardValue.Text  # REQUIRED cho Edit variants
+      Width: =266
+      X: =0
+      Y: =0
+```
+
+### 4. Missing Required Children
+```yaml
+# ❌ SAI - TypedDataCard thiếu required children
+- MyDataCard:
+    Control: TypedDataCard
+    Children:
+      - DataCardValue:           # ERROR - Missing DataCardKey, ErrorMessage, StarVisible
+
+# ✅ ĐÚNG - Complete children structure
+- MyDataCard:
+    Control: TypedDataCard
+    Children:
+      - DataCardKey:             # Field label - REQUIRED
+      - DataCardValue:           # Field input/display - REQUIRED  
+      - ErrorMessage:            # Error display - REQUIRED
+      - StarVisible:             # Required indicator - REQUIRED
+```
+
+### 5. Wrong Control Types for Variants
+```yaml
+# ❌ SAI - Wrong control type cho variant
+Variant: ClassicTextualEdit
+Children:
+  - DataCardValue:
+      Control: Label            # ERROR - Edit variant needs TextInput
+
+Variant: ClassicTextualView  
+Children:
+  - DataCardValue:
+      Control: Classic/TextInput # ERROR - View variant should use Label
+
+# ✅ ĐÚNG - Correct control types
+Variant: ClassicTextualEdit
+Children:
+  - DataCardValue:
+      Control: Classic/TextInput # Correct for edit
+
+Variant: ClassicTextualView
+Children:
+  - DataCardValue:
+      Control: Label            # Correct for view
+```
+
+### 6. Missing Update Property for Edit Cards
+```yaml
+# ❌ SAI - Edit DataCard missing Update property
+- EditDataCard:
+    Control: TypedDataCard
+    Variant: ClassicTextualEdit
+    Properties:
+      DataField: ="fullname"
+      Default: =ThisItem.fullname  # ERROR - Missing Update property
+
+# ✅ ĐÚNG - Edit DataCard with Update property
+- EditDataCard:
+    Control: TypedDataCard
+    Variant: ClassicTextualEdit
+    Properties:
+      DataField: ="fullname"
+      Default: =ThisItem.fullname
+      Update: =DataCardValue.Text  # REQUIRED cho Edit variants
+```
+
+---
+
+## 🔑 FORM BEST PRACTICES
+
+### 1. Use FormViewer cho Read-Only Scenarios
+- Detail views và record display dialogs
+- Approval workflows where data shouldn't be edited
+- Report displays và data review screens
+- **Variant**: ClassicTextualView, ClassicComboBoxView
+
+### 2. Use Form cho Edit/Create Scenarios  
+- Data entry forms và user input collection
+- Record editing và update operations
+- New record creation
+- **Variant**: ClassicTextualEdit, ClassicComboBoxEdit
+
+### 3. Always Include All 4 DataCard Children
+- **DataCardKey** (field label) - REQUIRED
+- **DataCardValue** (input/display control) - REQUIRED
+- **ErrorMessage** (validation feedback) - REQUIRED
+- **StarVisible** (required field indicator) - REQUIRED
+
+### 4. Proper SharePoint Field Binding
+- Use `DataSourceInfo()` cho DisplayName
+- Use `Choices()` cho ComboBox Items
+- Map custom fields correctly to SharePoint logical names
+- Handle system fields (Created, Modified, Author, Editor) appropriately
+
+### 5. Form State Management
+- Use appropriate FormMode (New/Edit/View)
+- Bind Item property correctly cho edit scenarios
+- Implement proper form validation before submission
+- Handle form events (OnSuccess, OnFailure, OnReset) appropriately
+
+### 6. Field Access Patterns
+- Use full path: `FormName.DataCardName.DataCardValueName.Property`
+- Different patterns cho TextInput (.Text) vs ComboBox (.Selected)
+- Validate all required fields before form submission
+
+---
+
+**Agent PHẢI tuân thủ những Form rules này TUYỆT ĐỐI khi tạo Power App forms với FormViewer, Form, và TypedDataCard controls.**
