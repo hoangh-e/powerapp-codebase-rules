@@ -504,6 +504,7 @@ OnSelect: |
 # ✅ ĐÚNG - FormViewer cho read-only display
 - FormViewer1:
     Control: FormViewer
+    Layout: Vertical                # REQUIRED - MUST be outside Properties (prevents PA1011)
     Properties:
       # DATA Section
       DataSource: =User_1           # SharePoint table reference
@@ -523,7 +524,6 @@ OnSelect: |
       Visible: =true
       
       # LAYOUT Section
-      Layout: =Layout.Vertical      # REQUIRED Layout property
       Columns: =3                   # Number of columns
       AcceptsFocus: =false          # Focus behavior
     Children:
@@ -537,7 +537,8 @@ OnSelect: |
 # ✅ ĐÚNG - Form cho edit/create operations
 - Form4:
     Control: Form
-    Variant: Classic              # REQUIRED Variant property
+    Variant: Classic              # REQUIRED - MUST be outside Properties
+    Layout: Vertical              # REQUIRED - MUST be outside Properties (prevents PA1011)
     Properties:
       # ACTION Section
       OnFailure: =false            # Action when form submission fails
@@ -564,7 +565,6 @@ OnSelect: |
       AcceptsFocus: =false         # Focus behavior
       
       # LAYOUT Section
-      Layout: =Layout.Vertical     # REQUIRED Layout property
       Columns: =3                  # Number of columns
     Children:
       # TypedDataCard với Variant: ClassicTextualEdit (editable)
@@ -588,11 +588,14 @@ OnSelect: |
 **BẮT BUỘC**: Form PHẢI có những properties này:
 
 ```yaml
+# CRITICAL: Layout và Variant PHẢI nằm ngoài Properties section
+Control: Form
+Variant: Classic                  # REQUIRED - MUST be outside Properties
+Layout: Vertical                  # REQUIRED - MUST be outside Properties (prevents PA1011)
+
 Properties:
   # REQUIRED CORE PROPERTIES
   DataSource: =SharePointTable    # REQUIRED - Data source
-  Variant: =Variant.Classic       # REQUIRED - Form variant
-  Layout: =Layout.Vertical        # REQUIRED - Layout direction
   
   # POSITION & SIZE
   X: =position                    # Horizontal position
@@ -609,10 +612,13 @@ Properties:
 **BẮT BUỘC**: FormViewer PHẢI có những properties này:
 
 ```yaml
+# CRITICAL: Layout PHẢI nằm ngoài Properties section
+Control: FormViewer
+Layout: Vertical                  # REQUIRED - MUST be outside Properties (prevents PA1011)
+
 Properties:
   # REQUIRED CORE PROPERTIES
   DataSource: =SharePointTable    # REQUIRED - Data source
-  Layout: =Layout.Vertical        # REQUIRED - Layout direction
   
   # POSITION & SIZE
   X: =position                    # Horizontal position
@@ -1191,7 +1197,41 @@ Form4.departmentID_DataCard3.DataCardValue27.SelectedItems
 
 ## 🚨 CRITICAL FORM ERRORS TO AVOID
 
-### 1. Missing Required Properties
+### ⚠️ PA1011 ERROR - Missing Layout Property
+**CRITICAL**: Layout property PHẢI nằm ngoài Properties section, nếu không sẽ gây PA1011 error:
+
+```yaml
+# ERROR: PA1011 : The keyword 'Layout' is required but is missing or empty.
+
+# ❌ SAI - Layout trong Properties section hoặc missing
+- MyForm:
+    Control: Form
+    Variant: Classic
+    Properties:
+      Layout: Vertical          # ERROR - Layout không được trong Properties
+      DataSource: =User_1
+
+- MyFormViewer:
+    Control: FormViewer
+    Properties:                 # ERROR - Missing Layout completely
+      DataSource: =User_1
+
+# ✅ ĐÚNG - Layout ngoài Properties section
+- MyForm:
+    Control: Form
+    Variant: Classic
+    Layout: Vertical            # CORRECT - Outside Properties
+    Properties:
+      DataSource: =User_1
+
+- MyFormViewer:
+    Control: FormViewer
+    Layout: Vertical            # CORRECT - Outside Properties
+    Properties:
+      DataSource: =User_1
+```
+
+### 1. Missing Required Properties - PA1011 Error
 ```yaml
 # ❌ SAI - Form missing required properties
 - MyForm:
@@ -1199,14 +1239,23 @@ Form4.departmentID_DataCard3.DataCardValue27.SelectedItems
     Properties:
       DataSource: =User_1        # ERROR - Missing Variant và Layout
 
+# ERROR MESSAGE: PA1011 : The keyword 'Layout' is required but is missing or empty.
+
 # ✅ ĐÚNG - Complete required properties
 - MyForm:
     Control: Form
     Variant: Classic            # REQUIRED
+    Layout: Vertical            # REQUIRED - MUST be outside Properties
     Properties:
       DataSource: =User_1
-      Layout: =Layout.Vertical   # REQUIRED
       DefaultMode: =FormMode.Edit
+
+# ✅ ĐÚNG - FormViewer với Layout required
+- MyFormViewer:
+    Control: FormViewer
+    Layout: Vertical            # REQUIRED - MUST be outside Properties
+    Properties:
+      DataSource: =User_1
 ```
 
 ### 2. Wrong Variant Usage
