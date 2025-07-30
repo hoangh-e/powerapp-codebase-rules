@@ -374,8 +374,8 @@ Screens:
                 Control: DataTable
 ```
 
-#### 1.11.4 DataTable OnSelect Property - CRITICAL ERROR
-**CRITICAL**: DataTable control does NOT support OnSelect property. Use SelectionChange instead.
+#### 1.11.4 DataTable Event Properties - CRITICAL ERROR
+**CRITICAL**: DataTable control does NOT support OnSelect OR OnSelectionChange properties (PA2108 error).
 
 ```yaml
 # ❌ SAI - DataTable không hỗ trợ OnSelect
@@ -386,12 +386,20 @@ Screens:
       OnSelect: |
         =Set(varSelectedItem, Self.Selected)  # PA2108 Error
 
-# ✅ ĐÚNG - DataTable sử dụng SelectionChange event
+# ❌ SAI - DataTable không hỗ trợ OnSelectionChange  
 - MyDataTable:
     Control: DataTable
     Properties:
       Items: =MyDataSource
-      # DataTable tự động handle selection, access via varSelectedItem context
+      OnSelectionChange: |
+        =Set(varSelectedItem, Self.Selected)  # PA2108 Error
+
+# ✅ ĐÚNG - DataTable chỉ có Items property, selection via overlay handler
+- MyDataTable:
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      # Access selection via Self.Selected trong separate overlay handler
 ```
 
 #### 1.11.5 DataTableColumn Custom Variant - PA2109 ERROR
@@ -437,6 +445,43 @@ Screens:
       Order: =1
       Text: =ThisItem.fullname  # Correct for display
 ```
+
+#### 1.11.7 DataTable OnSelectionChange Error - PA2108 CRITICAL FIX
+**CRITICAL**: PA2108 Error "Unknown property 'OnSelectionChange' for control type 'DataTable'" - DataTable does NOT support this property.
+
+```yaml
+# ❌ SAI - OnSelectionChange causes PA2108 error
+- MyDataTable:
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      OnSelectionChange: |  # PA2108 ERROR - Property not supported
+        =Set(varSelectedItem, Self.Selected)
+
+# ✅ ĐÚNG - Use overlay handler for selection detection
+- MyDataTable:
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      # Only Items property supported for DataTable
+
+# Separate overlay for selection handling
+- DataTable.SelectionOverlay:
+    Control: Rectangle
+    Properties:
+      Fill: =RGBA(0, 0, 0, 0)  # Invisible
+      Height: =MyDataTable.Height
+      Width: =MyDataTable.Width  
+      X: =MyDataTable.X
+      Y: =MyDataTable.Y
+      OnSelect: |
+        =If(Not(IsBlank(MyDataTable.Selected)),
+          Set(varSelectedItem, MyDataTable.Selected);
+          # Additional selection logic here
+        )
+```
+
+**SOLUTION PATTERN**: Always use separate Rectangle overlay positioned over DataTable for selection event handling.
 
 ### 1.12 DATATABLE PERFORMANCE GUIDELINES
 
@@ -505,47 +550,63 @@ Có phải screen Management (CRUD operations)?
 
 ### 1.14 DATATABLE SELECTION HANDLING - CRITICAL
 
-#### 1.14.1 DataTable OnSelectionChange - BẮT BUỘC
-**CRITICAL**: DataTable PHẢI có OnSelectionChange event để handle row selection cho context menus và detail views.
+#### 1.14.1 DataTable Selection Handling - CRITICAL ERROR FIXED
+**CRITICAL**: DataTable does NOT support OnSelectionChange property (PA2108 error). Use separate overlay handler for selection detection.
 
 ```yaml
-# ✅ ĐÚNG - DataTable với proper selection handling
+# ❌ SAI - DataTable không hỗ trợ OnSelectionChange property
 - MyDataTable:
     Control: DataTable
     Properties:
       Items: =MyDataSource
       OnSelectionChange: |
-        =Set(varSelectedItem, Self.Selected)
+        =Set(varSelectedItem, Self.Selected)  # PA2108 Error - Property not supported
 
-# ❌ SAI - DataTable without selection handling
+# ✅ ĐÚNG - DataTable without OnSelectionChange, use overlay for selection
 - MyDataTable:
     Control: DataTable
     Properties:
       Items: =MyDataSource
-      # Missing OnSelectionChange - không thể access selected row cho context menu
+      # DataTable selection accessed via Self.Selected in overlay handler
+
+# ✅ ĐÚNG - Separate overlay handler for selection detection
+- DataTable.Selection.Handler:
+    Control: Rectangle
+    Properties:
+      Fill: =RGBA(0, 0, 0, 0)  # Invisible overlay
+      Height: =MyDataTable.Height
+      Width: =MyDataTable.Width
+      X: =MyDataTable.X
+      Y: =MyDataTable.Y
+      OnSelect: |
+        =If(Not(IsBlank(MyDataTable.Selected)),
+          Set(varSelectedItem, MyDataTable.Selected);
+          Set(varShowContextMenu, true)
+        )
 ```
 
-#### 1.14.2 DataTable Context Menu Pattern
-**CRITICAL**: Context menus require proper DataTable selection handling và overlay pattern.
+#### 1.14.2 DataTable Context Menu Pattern - CORRECTED
+**CRITICAL**: Context menus require separate overlay handler since DataTable does NOT support OnSelectionChange.
 
 ```yaml
-# ✅ ĐÚNG - DataTable với context menu support
+# ✅ ĐÚNG - DataTable with proper context menu support
 - Users.DataTable:
     Control: DataTable
     Properties:
       Items: =FilteredUsers
-      OnSelectionChange: |
-        =Set(varSelectedUser, Self.Selected)
+      # NO OnSelectionChange property - not supported
     Children:
       # DataTable columns here...
 
-# Context menu handler (separate control)
-- DataTable.Overlay.Handler:
+# ✅ ĐÚNG - Separate overlay handler for context menu
+- DataTable.Context.Handler:
     Control: Rectangle
     Properties:
       Fill: =RGBA(0, 0, 0, 0)  # Invisible overlay
-      Height: =Parent.Height
-      Width: =Parent.Width
+      Height: ='Users.DataTable'.Height
+      Width: ='Users.DataTable'.Width
+      X: ='Users.DataTable'.X
+      Y: ='Users.DataTable'.Y
       OnSelect: |
         =If(Not(IsBlank('Users.DataTable'.Selected)),
           Set(varSelectedUser, 'Users.DataTable'.Selected);
@@ -554,7 +615,11 @@ Có phải screen Management (CRUD operations)?
           Set(varShowContextMenu, true)
         )
 
-# ❌ SAI - DataTable without interaction handling
+# ❌ SAI - DataTable with OnSelectionChange causes PA2108 error
+- Users.DataTable:
+    Control: DataTable
+    Properties:
+      OnSelectionChange: =Set(varSelected, Self.Selected)  # ERROR - Not supported
 ```
 
 #### 1.14.3 Context Menu Z-Index Rules
@@ -759,9 +824,10 @@ Screen có:
 - **ALWAYS** use as direct Screen children only
 - **NEVER** nest inside GroupContainer or other containers
 - **REQUIRED** properties: Items (only)
-- **FORBIDDEN** properties: OnSelect (causes PA2108 error)
+- **FORBIDDEN** properties: OnSelect, OnSelectionChange (causes PA2108 error)
 - **VERSION NUMBERS**: Never use @1.0.3 syntax
 - **CHILDREN**: Must contain DataTableColumn controls only
+- **SELECTION HANDLING**: Use separate overlay Rectangle with OnSelect to detect DataTable.Selected
 
 ### 2.7 DataTableColumn Control - RULES  
 **DataTableColumn Control** - Properties BẮT BUỘC:
@@ -1079,11 +1145,12 @@ Variant: 12Points
 76. **DATATABLE VERSION RESTRICTIONS** - CRITICAL: Never use version numbers (@1.0.3) with DataTable or DataTableColumn controls
 77. **DATATABLE PERFORMANCE FILTERING** - CRITICAL: Always filter data at source level before passing to DataTable Items property. Never rely on DataTable internal filtering for large datasets
 78. **DATATABLECOLUMN DISPLAY ONLY** - CRITICAL: DataTableColumn is for data display only. No OnSelect or event properties. Use ThisItem.fieldname for data binding
-79. **DATATABLE SELECTION HANDLING** - CRITICAL: DataTable MUST have OnSelectionChange event để handle row selection cho context menus và detail views
+79. **DATATABLE SELECTION HANDLING** - CRITICAL: DataTable does NOT support OnSelectionChange (PA2108 error). Use separate overlay Rectangle with OnSelect to detect DataTable.Selected for context menus
 80. **CONTEXT MENU Z-INDEX** - CRITICAL: Context menus must be positioned LAST trong Children array để ensure highest z-index
 81. **CLASSIC/TEXTINPUT FOCUS PROPERTY** - CRITICAL: Classic/TextInput chỉ hỗ trợ .Focus, KHÔNG hỗ trợ .Focused (PA2108 error)
 82. **COLLECTION VS TEXT FUNCTIONS** - CRITICAL: Concatenate() cho text only, Concat() cho collections/tables only. Wrong usage causes invalid argument errors
 83. **TABLE() FUNCTION RESTRICTIONS** - CRITICAL: ALWAYS AVOID Table() function. Use ClearCollect/Collect/Remove/Update instead for better performance và state management. Table() only acceptable for single-use lookups/calculations
+84. **DATATABLE ONSELECTIONCHANGE PA2108 ERROR** - CRITICAL: DataTable does NOT support OnSelectionChange property (PA2108 error). Use separate Rectangle overlay with OnSelect positioned over DataTable for selection handling
 
 ---
 
