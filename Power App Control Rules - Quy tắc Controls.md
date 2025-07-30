@@ -10,6 +10,14 @@
 3. [Control Z-Index & Rendering Order](#3-control-z-index--rendering-order)
 4. [Control Variants](#4-control-variants)
 
+**NEW DataTable Rules:**
+- [DataTable vs Gallery Decision Rules](#18-datatable-vs-gallery-decision-rules)
+- [DataTable Control Structure](#19-datatable-control-structure)
+- [DataTableColumn Rules](#110-datatablecolumn-rules)
+- [Critical DataTable Errors](#111-critical-datatable-errors)
+- [DataTable Performance Guidelines](#112-datatable-performance-guidelines)
+- [DataTable Decision Flowchart](#113-datatable-decision-flowchart)
+
 ---
 
 ## 1. ALLOWED CONTROLS
@@ -103,6 +111,429 @@ Control: Import
 Control: Export
 Control: ListBox
 Control: PowerBI
+```
+
+### 1.8 DATATABLE VS GALLERY DECISION RULES
+
+#### 1.8.1 KHI NÀO SỬ DỤNG DATATABLE - BẮT BUỘC
+**CRITICAL**: LUÔN LUÔN ưu tiên sử dụng DataTable thay vì Gallery trong những trường hợp sau:
+
+##### Database/SharePoint Data Lists
+```yaml
+# ✅ ĐÚNG - DataTable cho database data
+Items: =User_1  # SharePoint table
+Items: =Filter(NamecardRequest, Status = "Pending")
+Items: =Department_1
+
+# ❌ SAI - Gallery cho tabular database data  
+# Gallery chỉ dùng cho custom layouts, không phải tabular data
+```
+
+##### Forms có chức năng Chỉnh sửa và Tạo mới - CRITICAL
+**MANDATORY**: DataTable PHẢI được sử dụng khi screen có các form/modal để:
+- **Tạo mới** record (Create/Add forms)
+- **Chỉnh sửa** existing records (Edit/Update forms)
+- **Xóa** records với confirmation
+- **Quản lý** data với CRUD operations
+
+```yaml
+# ✅ ĐÚNG - DataTable với Edit/Create/Delete functionality
+- UserManagementScreen với:
+  - DataTable hiển thị users
+  - Add User form/modal
+  - Edit User form/modal  
+  - Delete confirmation modal
+
+# ✅ ĐÚNG - DataTable với CRUD operations
+- NamecardRequestScreen với:
+  - DataTable hiển thị requests
+  - Create Request form
+  - Edit Request details
+  - Approve/Reject actions
+
+# ❌ SAI - Gallery cho data management screens
+# Gallery không phù hợp khi cần edit/create/delete data
+```
+
+##### Tabular Data với Multiple Columns
+```yaml
+# ✅ ĐÚNG - DataTable cho data có nhiều columns cần hiển thị
+- Users: fullname, email, department, role, phone, actions
+- Orders: orderID, customerName, orderDate, status, total, actions
+- Products: name, category, price, quantity, supplier, actions
+
+# ❌ SAI - Gallery cho structured tabular data với action buttons
+```
+
+##### Data cần Sorting/Filtering Built-in
+```yaml
+# ✅ ĐÚNG - DataTable có built-in sorting và selection
+Control: DataTable
+Properties:
+  Items: =MyData
+  # Built-in sorting by clicking column headers
+  # Built-in row selection automatically handled
+# User có thể click column header để sort và click row để select
+
+# ❌ SAI - Gallery cần custom sorting/selection implementation
+```
+
+##### Management Screens Pattern - MANDATORY
+**CRITICAL**: Tất cả screens có pattern "Management" PHẢI sử dụng DataTable:
+
+```yaml
+# ✅ ĐÚNG - Management screens với DataTable
+- UserManagementScreen    # Quản lý người dùng
+- RequestManagementScreen # Quản lý yêu cầu  
+- OrderManagementScreen   # Quản lý đơn hàng
+- ProductManagementScreen # Quản lý sản phẩm
+
+# Pattern: DataTable + Add/Edit/Delete forms + Search/Filter
+```
+
+#### 1.8.2 KHI NÀO SỬ DỤNG GALLERY
+**CHỈ** sử dụng Gallery trong những trường hợp này:
+
+##### Custom Visual Layouts
+```yaml
+# ✅ ĐÚNG - Gallery cho custom card layouts
+- Image thumbnails với text
+- Dashboard cards với icons và metrics
+- Chat message bubbles
+- Product cards với images
+```
+
+##### Non-Tabular Data Presentation
+```yaml
+# ✅ ĐÚNG - Gallery cho non-structured presentation
+- Photo galleries
+- News article cards  
+- Social media posts
+- Dashboard widgets
+```
+
+### 1.9 DATATABLE CONTROL STRUCTURE
+
+#### 1.9.1 Basic DataTable Structure - BẮT BUỘC
+```yaml
+# ✅ ĐÚNG - DataTable structure (NO version numbers, NO OnSelect)
+- MyDataTable:
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      # DataTable automatically handles selection - no OnSelect property
+    Children:
+      - Column1:
+          Control: DataTableColumn
+          Variant: Textual
+          Properties:
+            FieldDisplayName: ="Display Name"
+            FieldName: ="LogicalName"
+            Order: =1
+            Text: =ThisItem.LogicalName
+
+# ❌ SAI - Version numbers và OnSelect KHÔNG được phép
+- MyDataTable:
+    Control: DataTable@1.0.3  # PA2108 Error - No version numbers
+    Properties:
+      OnSelect: =Set(varSelected, Self.Selected)  # PA2108 Error - Not supported
+```
+
+#### 1.9.2 DataTable với SharePoint Data
+```yaml
+# ✅ ĐÚNG - DataTable cho SharePoint tables (NO OnSelect property)
+- UsersTable:
+    Control: DataTable
+    Properties:
+      Items: =User_1  # SharePoint table reference
+      # Selection automatically handled by DataTable control
+    Children:
+      - FullName.Column:
+          Control: DataTableColumn
+          Variant: Textual
+          Properties:
+            FieldDisplayName: ="Họ và tên"
+            FieldName: ="fullname"
+            Order: =1
+            Text: =ThisItem.fullname
+      - Email.Column:
+          Control: DataTableColumn
+          Variant: Textual
+          Properties:
+            FieldDisplayName: ="Email"
+            FieldName: ="email"
+            Order: =2
+            Text: =ThisItem.email
+```
+
+### 1.10 DATATABLECOLUMN RULES
+
+#### 1.10.1 Required DataTableColumn Properties
+**BẮT BUỘC**: Mọi DataTableColumn PHẢI có những properties này:
+
+```yaml
+Properties:
+  FieldDisplayName: ="User Friendly Name"  # Tên hiển thị cho user
+  FieldName: ="logical_name"               # Tên field trong data source
+  Order: =1                                # Thứ tự column (bắt đầu từ 1)
+  Text: =ThisItem.field_name               # Giá trị hiển thị
+```
+
+#### 1.10.2 DataTableColumn Variants - SUPPORTED ONLY
+**CHỈ** sử dụng những variants này (PA2109 Error nếu sử dụng variants khác):
+
+```yaml
+# Text data - SUPPORTED
+Variant: Textual
+
+# Number data - SUPPORTED
+Variant: Number  
+
+# Date/Time data - SUPPORTED
+Variant: DateTime
+
+# Boolean data - SUPPORTED
+Variant: Boolean
+
+# ❌ KHÔNG HỖ TRỢ - Custom variant causes PA2109 Error
+# Variant: Custom  # ERROR - Not supported
+```
+
+#### 1.10.3 DataTableColumn Width Management
+```yaml
+# ✅ ĐÚNG - Specify column widths
+Properties:
+  Width: =200      # Fixed width
+  Width: =Parent.Width * 0.25  # Relative width
+
+# ✅ ĐÚNG - Let DataTable auto-size
+# Không specify Width property cho auto-sizing
+```
+
+### 1.11 CRITICAL DATATABLE ERRORS
+
+#### 1.11.1 Version Number Error
+```yaml
+# ❌ SAI - Version numbers
+Control: DataTable@1.0.3
+Control: DataTableColumn@1.0.1
+
+# ✅ ĐÚNG - No version numbers
+Control: DataTable
+Control: DataTableColumn
+```
+
+#### 1.11.2 Missing Required Properties
+```yaml
+# ❌ SAI - Missing required properties
+- MyColumn:
+    Control: DataTableColumn
+    Properties:
+      Text: =ThisItem.Name  # Missing FieldName, FieldDisplayName, Order
+
+# ✅ ĐÚNG - All required properties
+- MyColumn:
+    Control: DataTableColumn
+    Variant: Textual
+    Properties:
+      FieldDisplayName: ="Name"
+      FieldName: ="Name"  
+      Order: =1
+      Text: =ThisItem.Name
+```
+
+#### 1.11.3 DataTable Screen Children Only - CRITICAL RULE
+**CRITICAL**: DataTable controls MUST be direct Children of Screens ONLY. Never nest DataTable inside GroupContainer or other containers.
+
+```yaml
+# ✅ ĐÚNG - DataTable as direct Screen child
+Screens:
+  MyScreen:
+    Children:
+      - MyDataTable:
+          Control: DataTable
+          Properties:
+            X: =Parent.Width * 0.03
+            Y: =Parent.Height * 0.3  
+            Items: =MyDataSource
+
+# ❌ SAI - DataTable nested in containers
+Screens:
+  MyScreen:
+    Children:
+      - Container:
+          Control: GroupContainer
+          Children:
+            - MyDataTable:  # ERROR - Cannot nest DataTable
+                Control: DataTable
+```
+
+#### 1.11.4 DataTable OnSelect Property - CRITICAL ERROR
+**CRITICAL**: DataTable control does NOT support OnSelect property. Use SelectionChange instead.
+
+```yaml
+# ❌ SAI - DataTable không hỗ trợ OnSelect
+- MyDataTable:
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      OnSelect: |
+        =Set(varSelectedItem, Self.Selected)  # PA2108 Error
+
+# ✅ ĐÚNG - DataTable sử dụng SelectionChange event
+- MyDataTable:
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      # DataTable tự động handle selection, access via varSelectedItem context
+```
+
+#### 1.11.5 DataTableColumn Custom Variant - PA2109 ERROR
+**CRITICAL**: DataTableColumn does NOT support 'Custom' variant. Use only supported variants.
+
+```yaml
+# ❌ SAI - Custom variant không được hỗ trợ
+- ActionColumn:
+    Control: DataTableColumn
+    Variant: Custom  # PA2109 Error
+    Properties:
+      FieldDisplayName: ="Actions"
+
+# ✅ ĐÚNG - Chỉ sử dụng supported variants
+- ActionColumn:
+    Control: DataTableColumn
+    Variant: Textual  # Supported variant
+    Properties:
+      FieldDisplayName: ="Actions"
+      FieldName: ="Actions"
+      Order: =5
+      Text: ="Edit | Delete"
+```
+
+#### 1.11.6 DataTableColumn Reference Rules - CRITICAL
+**CRITICAL**: In DataTableColumn context, use proper data references.
+
+```yaml
+# ❌ SAI - Sai reference context
+- NameColumn:
+    Control: DataTableColumn
+    Properties:
+      OnSelect: |
+        =Set(varSelectedItem, ThisItem)  # ERROR - ThisItem not available in column
+
+# ✅ ĐÚNG - DataTableColumn chỉ hiển thị data, không handle events
+- NameColumn:
+    Control: DataTableColumn
+    Variant: Textual
+    Properties:
+      FieldDisplayName: ="Full Name"
+      FieldName: ="fullname"
+      Order: =1
+      Text: =ThisItem.fullname  # Correct for display
+```
+
+### 1.12 DATATABLE PERFORMANCE GUIDELINES
+
+#### 1.12.1 Filter at Data Source Level
+```yaml
+# ✅ ĐÚNG - Filter trước khi pass vào DataTable
+Items: |
+  =Filter(Users, 
+    And(
+      Status = "Active",
+      Department = varSelectedDepartment
+    )
+  )
+
+# ❌ SAI - Load all data then rely on DataTable filtering
+Items: =Users  # Load everything
+```
+
+#### 1.12.2 Use Proper Column Data Types
+```yaml
+# ✅ ĐÚNG - Sử dụng proper variants
+- DateColumn:
+    Variant: DateTime
+    Properties:
+      Text: =Text(ThisItem.CreatedDate, DateTimeFormat.ShortDate)
+
+- NumberColumn:
+    Variant: Number  
+    Properties:
+      Text: =Text(ThisItem.Amount, "$#,##0.00")
+
+# ❌ SAI - All columns as Textual
+- DateColumn:
+    Variant: Textual  # SAI - should be DateTime
+```
+
+#### 1.12.3 DataTable vs Gallery Performance
+**DataTable WINS khi:**
+- Tabular data với > 100 rows
+- Multiple sortable columns
+- Need built-in selection
+- Professional table appearance
+
+**Gallery WINS khi:**
+- Custom visual layouts
+- Rich media content (images, videos)
+- Card-based presentation
+- < 50 items với complex layouts
+
+### 1.13 DATATABLE DECISION FLOWCHART
+
+```
+Có phải screen Management (CRUD operations)?
+├── YES → ALWAYS use DataTable ✅
+│   ├── Create/Add forms → DataTable required
+│   ├── Edit/Update forms → DataTable required  
+│   └── Delete operations → DataTable required
+└── NO → Is it database/SharePoint data?
+    ├── YES → Is it tabular (rows/columns)?
+    │   ├── YES → Use DataTable ✅
+    │   └── NO → Consider Gallery
+    └── NO → Is it custom visual layout?
+        ├── YES → Use Gallery ✅
+        └── NO → Use DataTable for structured data
+```
+
+#### 1.13.1 DataTable Decision Matrix
+
+| Screen Type | Has CRUD Forms | Data Source | Layout | Recommendation |
+|-------------|----------------|-------------|---------|----------------|
+| **UserManagement** | ✅ Create/Edit/Delete | SharePoint | Tabular | **DataTable** ✅ |
+| **RequestManagement** | ✅ Create/Edit/Approve | SharePoint | Tabular | **DataTable** ✅ |
+| **OrderManagement** | ✅ Create/Edit/Delete | Database | Tabular | **DataTable** ✅ |
+| **Dashboard Stats** | ❌ View only | API | Cards | **Gallery** ✅ |
+| **Photo Gallery** | ❌ View only | Files | Grid | **Gallery** ✅ |
+| **News Feed** | ❌ View only | API | Cards | **Gallery** ✅ |
+| **Reports List** | ✅ Create/Edit | SharePoint | Tabular | **DataTable** ✅ |
+
+#### 1.13.2 CRUD Pattern Recognition
+**IDENTIFY** these patterns requiring DataTable:
+
+```yaml
+# PATTERN 1: Management Screen với Add/Edit/Delete
+Screen có:
+- Add/Create button
+- Edit action trong rows  
+- Delete confirmation
+- Search/filter functionality
+→ USE DataTable
+
+# PATTERN 2: Admin/Configuration Screen  
+Screen có:
+- Settings management
+- User role management  
+- System configuration
+→ USE DataTable
+
+# PATTERN 3: Workflow Management
+Screen có:
+- Approval workflows
+- Status updates
+- Bulk operations
+→ USE DataTable
 ```
 
 ---
@@ -231,6 +662,32 @@ Control: PowerBI
       TemplateSize: =Self.Height / 5  # Bắt buộc cho tất cả Gallery variants
 ```
 
+### 2.6 DataTable Control - RULES
+**DataTable Control** - Quy tắc sử dụng:
+- **ALWAYS** use as direct Screen children only
+- **NEVER** nest inside GroupContainer or other containers
+- **REQUIRED** properties: Items (only)
+- **FORBIDDEN** properties: OnSelect (causes PA2108 error)
+- **VERSION NUMBERS**: Never use @1.0.3 syntax
+- **CHILDREN**: Must contain DataTableColumn controls only
+
+### 2.7 DataTableColumn Control - RULES  
+**DataTableColumn Control** - Properties BẮT BUỘC:
+- `FieldDisplayName` - ALWAYS required for user display
+- `FieldName` - ALWAYS required for data binding
+- `Order` - ALWAYS required for column sequence
+- `Text` - ALWAYS required for content display
+- `Variant` - ALWAYS specify (Textual, Number, DateTime, Boolean ONLY)
+
+**DataTableColumn Control** - FORBIDDEN Properties:
+- `Variant: Custom` - Causes PA2109 error, NOT supported
+- `OnSelect` - DataTableColumn không hỗ trợ event properties
+
+**DataTableColumn Control** - Reference Rules:
+- **USE**: `ThisItem.fieldname` for data display only
+- **NEVER USE**: Event properties trong DataTableColumn
+- **CONTEXT**: DataTableColumn chỉ để hiển thị data, không handle events
+
 ---
 
 ## 3. CONTROL Z-INDEX & RENDERING ORDER
@@ -348,6 +805,45 @@ Variant: 12Points
 # ❌ WRONG - Classic/Button không hỗ trợ BorderRadius, Disabled, Align
 # ✅ CORRECT - Sử dụng DisplayMode thay Disabled, bỏ các properties không hỗ trợ
 ```
+
+#### DataTable với Event Properties
+```yaml
+# ❌ WRONG - DataTable không hỗ trợ event properties như OnSelect
+# ✅ CORRECT - Sử dụng GroupContainer cho layout, Classic/Button cho interaction
+```
+
+#### DataTable với Properties sai
+```yaml
+# ❌ WRONG - DataTable với properties sai
+- 'MyDataTable':
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      OnSelect: |
+        =Set(varSelectedItem, ThisItem)  # ERROR - ThisItem not available
+
+# ✅ ĐÚNG - DataTable với properties đúng
+- 'MyDataTable':
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      OnSelect: |
+        =Set(varSelectedItem, Self.Selected)
+```
+
+---
+
+**CRITICAL REMINDERS:**
+
+70. **DATATABLE CRUD PRIORITIZATION** - CRITICAL: Always use DataTable when screen has Create/Edit/Delete forms or CRUD operations. Gallery is NOT suitable for data management screens with forms
+71. **DATATABLE MANAGEMENT SCREENS** - CRITICAL: All "Management" pattern screens (UserManagement, RequestManagement, etc.) MUST use DataTable with proper Add/Edit/Delete functionality
+72. **DATATABLE SCREEN CHILDREN** - CRITICAL: DataTable controls must be direct children of Screens only. Never nest inside GroupContainer or other containers
+73. **DATATABLECOLUMN REQUIRED PROPERTIES** - CRITICAL: Every DataTableColumn must have FieldDisplayName, FieldName, Order, and Text properties. Missing any causes display errors
+74. **DATATABLE ONSELECT FORBIDDEN** - CRITICAL: DataTable does NOT support OnSelect property (PA2108 error). Selection is handled automatically
+75. **DATATABLECOLUMN CUSTOM VARIANT FORBIDDEN** - CRITICAL: DataTableColumn does NOT support Custom variant (PA2109 error). Use only Textual, Number, DateTime, Boolean
+76. **DATATABLE VERSION RESTRICTIONS** - CRITICAL: Never use version numbers (@1.0.3) with DataTable or DataTableColumn controls
+77. **DATATABLE PERFORMANCE FILTERING** - CRITICAL: Always filter data at source level before passing to DataTable Items property. Never rely on DataTable internal filtering for large datasets
+78. **DATATABLECOLUMN DISPLAY ONLY** - CRITICAL: DataTableColumn is for data display only. No OnSelect or event properties. Use ThisItem.fieldname for data binding
 
 ---
 
