@@ -142,6 +142,7 @@ Control: PowerBI
 - `BorderRadius` - Không được hỗ trợ cho Classic/Button
 - `Disabled` - Sử dụng `DisplayMode` thay thế
 - `Align` - Không được hỗ trợ cho buttons
+- `Children` - Classic/Button không hỗ trợ Children property 
 
 ```yaml
 # ❌ SAI - Classic/Button với properties không hỗ trợ
