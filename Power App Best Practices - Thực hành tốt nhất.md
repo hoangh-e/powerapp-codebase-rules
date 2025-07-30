@@ -12,6 +12,11 @@
 5. [Error Handling](#5-error-handling)
 6. [Testing & Debugging](#6-testing--debugging)
 
+**NEW SharePoint & Form Management:**
+- [SharePoint Data Management](#44-sharepoint-data-management)
+- [Form Reset and State Management](#54-form-reset-and-state-management)
+- [Modal and Context Menu Patterns](#55-modal-and-context-menu-patterns)
+
 ---
 
 ## 1. PERFORMANCE OPTIMIZATION
@@ -367,6 +372,86 @@ OnSelect: |
   )
 ```
 
+### 4.4 SharePoint Data Management - CRITICAL
+**IMPLEMENT** proper SharePoint CRUD operations:
+
+#### 4.4.1 SharePoint Create Operations
+```yaml
+# ✅ ĐÚNG - Generate unique userID cho SharePoint
+OnSelect: |
+  =Set(varErrorMessage, "");
+  IfError(
+    With({
+      newUserID: Concatenate("USER_", Text(Rand() * 1000000, "000000"))
+    },
+      Patch(User_1, Defaults(User_1), {
+        userID: newUserID,
+        fullname: 'FullName.Input'.Text,
+        email: 'Email.Input'.Text,
+        departmentID: 'Department.Dropdown'.Selected.departmentID,
+        jobTitle: 'JobTitle.Input'.Text,
+        phone: 'Phone.Input'.Text
+      });
+      Patch(User_Role, Defaults(User_Role), {
+        userID: newUserID,
+        roleID: 'Role.Dropdown'.Selected.roleID
+      })
+    ),
+    Set(varErrorMessage, FirstError.Message);
+    Notify("Có lỗi: " & FirstError.Message, NotificationType.Error),
+    Set(varShowUserForm, false);
+    Notify("Đã tạo người dùng thành công!", NotificationType.Success)
+  )
+
+# ❌ SAI - Sử dụng user input làm primary key
+OnSelect: |
+  =Patch(User_1, Defaults(User_1), {
+    userID: 'FullName.Input'.Text,  # Có thể duplicate
+    fullname: 'FullName.Input'.Text
+  })
+```
+
+#### 4.4.2 SharePoint Update Operations
+```yaml
+# ✅ ĐÚNG - Proper SharePoint update với error handling
+OnSelect: |
+  =IfError(
+    Patch(User_1, LookUp(User_1, userID = varSelectedUser.userID), {
+      fullname: 'Detail.FullName.Input'.Text,
+      email: 'Detail.Email.Input'.Text,
+      departmentID: 'Detail.Department.Dropdown'.Selected.departmentID,
+      jobTitle: 'Detail.JobTitle.Input'.Text,
+      phone: 'Detail.Phone.Input'.Text
+    });
+    Patch(User_Role, LookUp(User_Role, userID = varSelectedUser.userID), {
+      roleID: 'Detail.Role.Dropdown'.Selected.roleID
+    }),
+    Notify("Có lỗi: " & FirstError.Message, NotificationType.Error),
+    Set(varSelectedUser, LookUp(User_1, userID = varSelectedUser.userID));
+    Set(varDetailFormMode, "View");
+    Notify("Đã cập nhật thành công!", NotificationType.Success)
+  )
+```
+
+#### 4.4.3 SharePoint Delete Operations - Order Matters
+```yaml
+# ✅ ĐÚNG - Delete related records trước, main record sau
+OnSelect: |
+  =IfError(
+    Remove(User_Role, LookUp(User_Role, userID = varSelectedUser.userID));
+    Remove(User_1, LookUp(User_1, userID = varSelectedUser.userID)),
+    Notify("Có lỗi khi xóa: " & FirstError.Message, NotificationType.Error),
+    Set(varDeleteConfirm, false);
+    Set(varSelectedUser, Blank());
+    Notify("Đã xóa người dùng thành công!", NotificationType.Success)
+  )
+
+# ❌ SAI - Delete main record trước (có thể gây foreign key errors)
+OnSelect: |
+  =Remove(User_1, selectedUser);
+  Remove(User_Role, LookUp(User_Role, userID = selectedUser.userID))
+```
+
 ---
 
 ## 5. ERROR HANDLING
@@ -436,6 +521,168 @@ Text: ="Something went wrong. Please try again."
 # ✅ ĐÚNG - Loading state
 Visible: =varIsLoading
 Text: ="Loading your data..."
+```
+
+### 5.4 Form Reset and State Management - CRITICAL
+**IMPLEMENT** complete form reset patterns:
+
+#### 5.4.1 Complete Form Reset Pattern
+```yaml
+# ✅ ĐÚNG - Complete form reset khi close modal
+OnSelect: |
+  =Set(varShowUserForm, false);
+  Reset('FullName.Input');
+  Reset('Email.Input');
+  Reset('Department.Dropdown');
+  Reset('JobTitle.Input');
+  Reset('Phone.Input');
+  Reset('Role.Dropdown');
+  Set(varEditingUser, Blank());
+  Set(varFormMode, "Add");
+  Set(varErrorMessage, "")
+
+# ❌ SAI - Partial reset leaves stale state
+OnSelect: |
+  =Set(varShowUserForm, false)  # Missing Reset() calls
+
+# NOTE: LUÔN reset tất cả form controls và related variables
+```
+
+#### 5.4.2 Form Validation với Visual Feedback
+```yaml
+# ✅ ĐÚNG - Complete validation với visual indicators
+DisplayMode: |
+  =If(And(
+    Not(IsBlank('FullName.Input'.Text)), 
+    Not(IsBlank('Email.Input'.Text)), 
+    Not(IsBlank('Department.Dropdown'.Selected)), 
+    Not(IsBlank('JobTitle.Input'.Text)), 
+    Not(IsBlank('Phone.Input'.Text)),
+    Not(IsBlank('Role.Dropdown'.Selected)),
+    IsMatch('Email.Input'.Text, Email)
+  ), DisplayMode.Edit, DisplayMode.Disabled)
+
+# Visual validation indicator cho mỗi required field
+- FullName.Validation.Icon:
+    Control: Classic/Icon
+    Properties:
+      Color: =If(IsBlank('FullName.Input'.Text), RGBA(220, 53, 69, 1), RGBA(16, 124, 16, 1))
+      Height: =20
+      Icon: =If(IsBlank('FullName.Input'.Text), Icon.Cancel, Icon.CheckMark)
+      Visible: =Or('FullName.Input'.Focus, Not(IsBlank('FullName.Input'.Text)))
+      Width: =20
+```
+
+#### 5.4.3 Error Handling Pattern cho Forms
+```yaml
+# ✅ ĐÚNG - Comprehensive error handling với user feedback
+OnSelect: |
+  =Set(varErrorMessage, "");
+  Set(varIsSubmitting, true);
+  IfError(
+    Patch(DataSource, record, updates),
+    Set(varErrorMessage, FirstError.Message);
+    Set(varIsSubmitting, false);
+    Notify("Có lỗi: " & FirstError.Message, NotificationType.Error),
+    Set(varShowForm, false);
+    Set(varIsSubmitting, false);
+    Notify("Thành công!", NotificationType.Success);
+    // Complete reset
+    Reset('Input1'); Reset('Input2'); Reset('Dropdown1')
+  )
+
+# Error display area
+- Error.Message.Label:
+    Control: Label
+    Properties:
+      Text: =varErrorMessage
+      Visible: =Not(IsBlank(varErrorMessage))
+      Color: =RGBA(220, 53, 69, 1)
+```
+
+### 5.5 Modal and Context Menu Patterns - CRITICAL
+**IMPLEMENT** proper modal và context menu patterns:
+
+#### 5.5.1 Modal Positioning Best Practices
+```yaml
+# ✅ ĐÚNG - Simple center positioning
+- User.Form.Modal:
+    Control: GroupContainer
+    Properties:
+      X: =(Parent.Width - Self.Width) / 2
+      Y: =(Parent.Height - Self.Height) / 2
+      Width: =Min(Parent.Width * 0.9, 500)
+      Height: =Min(Parent.Height * 0.8, 600)
+      Visible: =varShowUserForm
+
+# ❌ SAI - Complex animation logic có thể cause rendering issues
+Properties:
+  X: =If(varShowModal, (Parent.Width - Self.Width) / 2, -Parent.Width * 2)
+  Y: =If(varShowModal, (Parent.Height - Self.Height) / 2, -Parent.Height * 2)
+
+# NOTE: Ưu tiên simple positioning, sử dụng Visible property cho show/hide
+```
+
+#### 5.5.2 Context Menu Pattern với DataTable
+```yaml
+# ✅ ĐÚNG - Context menu với proper z-index và interaction
+Children:
+  # 1. Data display elements
+  - Users.DataTable:
+      Control: DataTable
+      Properties:
+        OnSelectionChange: |
+          =Set(varSelectedUser, Self.Selected)
+      
+  # 2. Interactive overlays
+  - DataTable.Overlay.Handler:
+      Control: Rectangle
+      Properties:
+        Fill: =RGBA(0, 0, 0, 0)  # Invisible overlay
+        Height: =Parent.Height
+        Width: =Parent.Width
+        OnSelect: |
+          =If(Not(IsBlank('Users.DataTable'.Selected)),
+            Set(varSelectedUser, 'Users.DataTable'.Selected);
+            Set(varContextMenuX, Min(App.ActiveScreen.Width - 150, App.MouseX));
+            Set(varContextMenuY, Min(App.ActiveScreen.Height - 120, App.MouseY));
+            Set(varShowContextMenu, true)
+          )
+          
+  # 3. Context menus LAST (highest z-index)
+  - User.Context.Menu:
+      Control: GroupContainer
+      Properties:
+        X: =varContextMenuX
+        Y: =varContextMenuY
+        Visible: =varShowContextMenu
+        # Menu items here...
+
+# NOTE: Thứ tự trong Children array quyết định z-index
+```
+
+#### 5.5.3 Modal Backdrop và Close Handling
+```yaml
+# ✅ ĐÚNG - Modal backdrop với click-to-close
+- Modal.Backdrop:
+    Control: Rectangle
+    Properties:
+      Fill: =RGBA(0, 0, 0, 0.5)  # Semi-transparent overlay
+      Height: =Parent.Height
+      Width: =Parent.Width
+      OnSelect: |
+        =Set(varShowUserForm, false);
+        // Complete form reset
+        Reset('FullName.Input'); Reset('Email.Input')
+      Visible: =varShowUserForm
+
+# Modal container
+- User.Form.Modal:
+    Control: GroupContainer
+    Properties:
+      X: =(Parent.Width - Self.Width) / 2
+      Y: =(Parent.Height - Self.Height) / 2
+      Visible: =varShowUserForm
 ```
 
 ---

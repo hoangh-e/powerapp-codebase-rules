@@ -17,6 +17,12 @@
 - [Critical DataTable Errors](#111-critical-datatable-errors)
 - [DataTable Performance Guidelines](#112-datatable-performance-guidelines)
 - [DataTable Decision Flowchart](#113-datatable-decision-flowchart)
+- [DataTable Selection Handling](#114-datatable-selection-handling)
+
+**NEW Control Property Rules:**
+- [Classic/TextInput Focus Properties](#28-classictextinput-focus-properties)
+- [Collection vs Text Function Rules](#29-collection-vs-text-function-rules)
+- [Table() Function Restrictions](#210-table-function-restrictions---critical)
 
 ---
 
@@ -497,6 +503,92 @@ Có phải screen Management (CRUD operations)?
         └── NO → Use DataTable for structured data
 ```
 
+### 1.14 DATATABLE SELECTION HANDLING - CRITICAL
+
+#### 1.14.1 DataTable OnSelectionChange - BẮT BUỘC
+**CRITICAL**: DataTable PHẢI có OnSelectionChange event để handle row selection cho context menus và detail views.
+
+```yaml
+# ✅ ĐÚNG - DataTable với proper selection handling
+- MyDataTable:
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      OnSelectionChange: |
+        =Set(varSelectedItem, Self.Selected)
+
+# ❌ SAI - DataTable without selection handling
+- MyDataTable:
+    Control: DataTable
+    Properties:
+      Items: =MyDataSource
+      # Missing OnSelectionChange - không thể access selected row cho context menu
+```
+
+#### 1.14.2 DataTable Context Menu Pattern
+**CRITICAL**: Context menus require proper DataTable selection handling và overlay pattern.
+
+```yaml
+# ✅ ĐÚNG - DataTable với context menu support
+- Users.DataTable:
+    Control: DataTable
+    Properties:
+      Items: =FilteredUsers
+      OnSelectionChange: |
+        =Set(varSelectedUser, Self.Selected)
+    Children:
+      # DataTable columns here...
+
+# Context menu handler (separate control)
+- DataTable.Overlay.Handler:
+    Control: Rectangle
+    Properties:
+      Fill: =RGBA(0, 0, 0, 0)  # Invisible overlay
+      Height: =Parent.Height
+      Width: =Parent.Width
+      OnSelect: |
+        =If(Not(IsBlank('Users.DataTable'.Selected)),
+          Set(varSelectedUser, 'Users.DataTable'.Selected);
+          Set(varContextMenuX, Min(App.ActiveScreen.Width - 150, App.MouseX));
+          Set(varContextMenuY, Min(App.ActiveScreen.Height - 120, App.MouseY));
+          Set(varShowContextMenu, true)
+        )
+
+# ❌ SAI - DataTable without interaction handling
+```
+
+#### 1.14.3 Context Menu Z-Index Rules
+**CRITICAL**: Context menus MUST be positioned last trong Children array để ensure highest z-index.
+
+```yaml
+# ✅ ĐÚNG - Context menu positioning trong Children array
+Children:
+  # 1. Background elements first
+  - Background:
+      Control: Rectangle
+  
+  # 2. Data display elements
+  - Users.DataTable:
+      Control: DataTable
+      
+  # 3. Interactive overlays
+  - DataTable.Overlay.Handler:
+      Control: Rectangle
+      
+  # 4. Context menus LAST (highest z-index)
+  - User.Context.Menu:
+      Control: GroupContainer
+      Properties:
+        Visible: =varShowContextMenu
+
+# ❌ SAI - Context menu positioned early trong Children array
+Children:
+  - User.Context.Menu:  # ERROR - Sẽ bị other elements cover
+      Control: GroupContainer
+  - Users.DataTable:
+      Control: DataTable
+```
+
 #### 1.13.1 DataTable Decision Matrix
 
 | Screen Type | Has CRUD Forms | Data Source | Layout | Recommendation |
@@ -688,6 +780,149 @@ Screen có:
 - **NEVER USE**: Event properties trong DataTableColumn
 - **CONTEXT**: DataTableColumn chỉ để hiển thị data, không handle events
 
+### 2.8 Classic/TextInput Focus Properties - CRITICAL
+**Classic/TextInput Control** - Focus Property Rules:
+
+```yaml
+# ✅ ĐÚNG - Classic/TextInput focus property
+- MyTextInput:
+    Control: Classic/TextInput
+    Properties:
+      BorderColor: =If(Self.Focus, Colors.Primary, Colors.Border)
+      Fill: =If(Self.Focus, Colors.LightBlue, Colors.White)
+
+# ❌ SAI - .Focused không được hỗ trợ cho Classic/TextInput
+- MyTextInput:
+    Control: Classic/TextInput
+    Properties:
+      BorderColor: =If(Self.Focused, Colors.Primary, Colors.Border)  # PA2108 Error
+
+# NOTE: Classic/TextInput chỉ hỗ trợ .Focus, KHÔNG hỗ trợ .Focused
+```
+
+**Classic/TextInput Control** - Validation Patterns:
+```yaml
+# ✅ ĐÚNG - Real-time validation với Focus state
+BorderColor: =If(Self.Focus, 
+  Colors.Primary, 
+  If(IsBlank(Self.Text), Colors.Border, 
+    If(IsMatch(Self.Text, Email), Colors.Success, Colors.Error)
+  )
+)
+
+# Visual validation với Focus detection
+ValidationIcon.Visible: =Self.Focus Or Not(IsBlank(Self.Text))
+ValidationIcon.Color: =If(IsBlank(Self.Text), Colors.Error, Colors.Success)
+```
+
+### 2.9 Collection vs Text Function Rules - CRITICAL
+**Collection Functions** - Proper Usage:
+
+```yaml
+# ✅ ĐÚNG - Concat() cho collections/tables
+Items: |
+  =Concat(
+    Table({Name: "Tất cả"}),
+    AddColumns(Department_1, "Name", name)
+  )
+
+# ✅ ĐÚNG - Concatenate() cho text strings  
+Text: =Concatenate("Hello ", userName, "!")
+
+# ❌ SAI - Concatenate() cho tables causes error
+Items: |
+  =Concatenate(
+    Table({Name: "Tất cả"}),
+    Department_1  # Invalid argument type error
+  )
+
+# ❌ SAI - Concat() cho text strings không optimal
+Text: =Concat(Table({Value: "Hello"}), Table({Value: userName}))
+```
+
+**Function Selection Rules**:
+- **Concatenate()** = Text function ONLY
+- **Concat()** = Collection/Table function ONLY  
+- **& operator** = Text concatenation alternative
+- **Union()** = Table combination alternative
+
+### 2.10 Table() Function Restrictions - CRITICAL
+**ALWAYS AVOID Table()** - Use Collection Management Functions Instead:
+
+```yaml
+# ❌ SAI - Table() function tạo temporary data, không efficient
+OnSelect: |
+  =Set(varOptions, Table(
+    {ID: 1, Name: "Option 1"},
+    {ID: 2, Name: "Option 2"},
+    {ID: 3, Name: "Option 3"}
+  ))
+
+# ✅ ĐÚNG - ClearCollect() cho collection initialization
+OnSelect: |
+  =ClearCollect(colOptions,
+    {ID: 1, Name: "Option 1"},
+    {ID: 2, Name: "Option 2"},
+    {ID: 3, Name: "Option 3"}
+  )
+
+# ❌ SAI - Table() trong Items property
+Items: =Table(
+  {Value: "All Departments"},
+  {Value: "IT"},
+  {Value: "HR"}
+)
+
+# ✅ ĐÚNG - Sử dụng pre-populated collection
+Items: =colDepartmentOptions  # Populated via ClearCollect trong OnStart
+```
+
+**Collection Management Priorities**:
+1. **ClearCollect()** - Replace entire collection (preferred for initialization)
+2. **Collect()** - Add records to existing collection
+3. **Remove()/RemoveIf()** - Remove specific records
+4. **Update()/UpdateIf()** - Modify existing records
+5. **AVOID Table()** - Only use when absolutely necessary for single-use scenarios
+
+**Performance Benefits của Collection Functions**:
+```yaml
+# ✅ ĐÚNG - Collections maintain state và performance
+OnStart: |
+  =Concurrent(
+    ClearCollect(colDepartments, Department_1),
+    ClearCollect(colUsers, User_1),
+    ClearCollect(colStatuses, 
+      {ID: 1, Name: "Active", Color: "Green"},
+      {ID: 2, Name: "Inactive", Color: "Red"},
+      {ID: 3, Name: "Pending", Color: "Orange"}
+    )
+  )
+
+# Items references cached collections
+MyDropdown.Items: =colDepartments
+MyGallery.Items: =Filter(colUsers, Status = "Active")
+
+# ❌ SAI - Table() recreated every time, poor performance
+MyDropdown.Items: =Table({Name: "IT"}, {Name: "HR"}, {Name: "Finance"})
+```
+
+**Table() Function - Limited Use Cases Only**:
+```yaml
+# ✅ CHẤP NHẬN - Table() cho single-use lookup trong formulas
+LookUp: =LookUp(
+  Table({Min: 0, Max: 100, Grade: "A"}, {Min: 80, Max: 99, Grade: "B"}),
+  score >= Min And score <= Max
+).Grade
+
+# ✅ CHẤP NHẬN - Table() trong complex calculations
+Result: =Sum(
+  Table({Factor: 1.2}, {Factor: 1.5}, {Factor: 0.8}),
+  baseValue * Factor
+)
+
+# ❌ SAI - Table() cho dropdown options, gallery items, any UI data binding
+```
+
 ---
 
 ## 3. CONTROL Z-INDEX & RENDERING ORDER
@@ -844,6 +1079,11 @@ Variant: 12Points
 76. **DATATABLE VERSION RESTRICTIONS** - CRITICAL: Never use version numbers (@1.0.3) with DataTable or DataTableColumn controls
 77. **DATATABLE PERFORMANCE FILTERING** - CRITICAL: Always filter data at source level before passing to DataTable Items property. Never rely on DataTable internal filtering for large datasets
 78. **DATATABLECOLUMN DISPLAY ONLY** - CRITICAL: DataTableColumn is for data display only. No OnSelect or event properties. Use ThisItem.fieldname for data binding
+79. **DATATABLE SELECTION HANDLING** - CRITICAL: DataTable MUST have OnSelectionChange event để handle row selection cho context menus và detail views
+80. **CONTEXT MENU Z-INDEX** - CRITICAL: Context menus must be positioned LAST trong Children array để ensure highest z-index
+81. **CLASSIC/TEXTINPUT FOCUS PROPERTY** - CRITICAL: Classic/TextInput chỉ hỗ trợ .Focus, KHÔNG hỗ trợ .Focused (PA2108 error)
+82. **COLLECTION VS TEXT FUNCTIONS** - CRITICAL: Concatenate() cho text only, Concat() cho collections/tables only. Wrong usage causes invalid argument errors
+83. **TABLE() FUNCTION RESTRICTIONS** - CRITICAL: ALWAYS AVOID Table() function. Use ClearCollect/Collect/Remove/Update instead for better performance và state management. Table() only acceptable for single-use lookups/calculations
 
 ---
 

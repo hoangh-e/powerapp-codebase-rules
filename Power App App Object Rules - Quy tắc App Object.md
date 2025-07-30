@@ -11,6 +11,10 @@
 4. [Global Variables & Functions](#4-global-variables--functions)
 5. [App Integration Rules](#5-app-integration-rules)
 
+**NEW Global State Management:**
+- [Global UI State Management](#45-global-ui-state-management)
+- [Global Error and Loading States](#46-global-error-and-loading-states)
+
 ---
 
 ## 1. APP OBJECT OVERVIEW
@@ -275,6 +279,143 @@ AppSettings = {
 # ❌ SAI - Conflicts với potential data source names
 VaiTro = {...};  // Có thể conflict với external data source
 Quyen = {...};   // Có thể conflict với external data source
+```
+
+### 4.5 Global UI State Management - CRITICAL
+**CRITICAL**: Define global UI states và loading patterns trong App/Formulas:
+
+#### 4.5.1 Loading States Definition
+```
+//=== LOADING STATES ===
+LoadingStates = {
+  Button: {
+    Text: "Đang tải...",
+    DisabledText: "Vui lòng đợi...",
+    LoadingIcon: Icon.Loading
+  },
+  Screen: {
+    Message: "Đang tải dữ liệu...",
+    Overlay: RGBA(255, 255, 255, 0.8),
+    SpinnerColor: RGBA(0, 120, 212, 1)
+  },
+  Form: {
+    Submitting: "Đang lưu...",
+    Validating: "Đang kiểm tra...",
+    Processing: "Đang xử lý..."
+  }
+};
+
+//Usage trong screens:
+//Text: =If(varIsLoading, LoadingStates.Button.Text, "Submit")
+//Fill: =LoadingStates.Screen.Overlay
+```
+
+#### 4.5.2 Error Messages Definition
+```
+//=== ERROR MESSAGES ===
+ErrorMessages = {
+  Network: "Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.",
+  Validation: "Vui lòng kiểm tra thông tin nhập và thử lại.",
+  Permission: "Bạn không có quyền thực hiện thao tác này.",
+  NotFound: "Không tìm thấy dữ liệu yêu cầu.",
+  Timeout: "Yêu cầu đã hết thời gian chờ. Vui lòng thử lại.",
+  Duplicate: "Dữ liệu đã tồn tại trong hệ thống.",
+  Required: "Vui lòng điền đầy đủ thông tin bắt buộc.",
+  InvalidFormat: "Định dạng dữ liệu không hợp lệ.",
+  General: "Có lỗi xảy ra. Vui lòng thử lại hoặc liên hệ quản trị viên."
+};
+
+//Usage trong screens:
+//Text: =ErrorMessages.Network  
+//Notify(ErrorMessages.Validation, NotificationType.Error)
+```
+
+#### 4.5.3 Success Messages Definition
+```
+//=== SUCCESS MESSAGES ===
+SuccessMessages = {
+  Created: "Đã tạo mới thành công!",
+  Updated: "Đã cập nhật thành công!",
+  Deleted: "Đã xóa thành công!",
+  Saved: "Đã lưu thành công!",
+  Uploaded: "Đã tải lên thành công!",
+  Sent: "Đã gửi thành công!",
+  Approved: "Đã phê duyệt thành công!",
+  Completed: "Đã hoàn thành thành công!"
+};
+
+//Usage trong screens:
+//Notify(SuccessMessages.Created, NotificationType.Success)
+```
+
+### 4.6 Global Error and Loading States - CRITICAL
+**CRITICAL**: Centralized error và loading state management:
+
+#### 4.6.1 Global Loading Pattern
+```
+//=== GLOBAL LOADING MANAGEMENT ===
+GlobalLoadingManager = {
+  SetLoading: (screenName: Text, isLoading: Boolean) => {
+    UpdateContext({
+      ["varLoading_" & screenName]: isLoading
+    })
+  },
+  IsLoading: (screenName: Text) => {
+    ["varLoading_" & screenName]
+  }
+};
+
+//Usage:
+//GlobalLoadingManager.SetLoading("UserManagement", true)
+//If(GlobalLoadingManager.IsLoading("UserManagement"), "Loading...", "Ready")
+```
+
+#### 4.6.2 Global Error State Pattern
+```
+//=== GLOBAL ERROR MANAGEMENT ===
+GlobalErrorManager = {
+  SetError: (errorType: Text, message: Text) => {
+    Set(varGlobalError, {
+      Type: errorType,
+      Message: message,
+      Timestamp: Now(),
+      Screen: App.ActiveScreen.Name
+    })
+  },
+  ClearError: () => {
+    Set(varGlobalError, Blank())
+  },
+  HasError: () => {
+    Not(IsBlank(varGlobalError))
+  }
+};
+
+//Usage trong OnError:
+//GlobalErrorManager.SetError("Network", ErrorMessages.Network)
+```
+
+#### 4.6.3 Modal State Management
+```
+//=== MODAL STATE MANAGEMENT ===
+ModalStates = {
+  UserForm: "varShowUserForm",
+  DeleteConfirm: "varShowDeleteConfirm", 
+  DetailView: "varShowDetailView",
+  Settings: "varShowSettings"
+};
+
+//Modal helper functions
+ShowModal = (modalName: Text) => {
+  Set(modalName, true)
+};
+
+HideModal = (modalName: Text) => {
+  Set(modalName, false)
+};
+
+//Usage:
+//ShowModal(ModalStates.UserForm)
+//HideModal(ModalStates.DeleteConfirm)
 ```
 
 ---

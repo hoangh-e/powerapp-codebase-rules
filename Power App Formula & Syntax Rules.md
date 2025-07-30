@@ -12,6 +12,11 @@
 5. [Text Formatting](#5-text-formatting)
 6. [Common Mistakes](#6-common-mistakes)
 
+**NEW DataTable & SharePoint Rules:**
+- [DataTable Filter Context Rules](#68-datatable-filter-context-rules)
+- [SharePoint Lookup Patterns](#69-sharepoint-lookup-patterns)
+- [SharePoint UserID Generation Rules](#610-sharepoint-userid-generation-rules)
+
 ---
 
 ## 1. FORMULA SYNTAX RULES
@@ -285,17 +290,19 @@ BorderColor: =If(Self.Focus, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))
 # Sử dụng OnHover events thay vì Self.IsHovered
 ```
 
-### 6.2 Classic/TextInput Focus Property Error
-**CRITICAL**: Classic/TextInput KHÔNG hỗ trợ .Focused property:
+### 6.2 Classic/TextInput Focus Property Error - CORRECTED
+**CRITICAL**: Classic/TextInput chỉ hỗ trợ .Focus property, KHÔNG hỗ trợ .Focused:
 
 ```yaml
-# ❌ SAI - .Focus không tồn tại cho Classic/TextInput
+# ✅ ĐÚNG - Sử dụng .Focus cho Classic/TextInput
 Visible: ='MyTextInput'.Focus
 BorderColor: =If('MyTextInput'.Focus, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))
 
-# ✅ ĐÚNG - Sử dụng .Focused cho Classic/TextInput
-Visible: ='MyTextInput'.Focused
+# ❌ SAI - .Focused không được hỗ trợ cho Classic/TextInput
+Visible: ='MyTextInput'.Focused  # PA2108 Error
 BorderColor: =If('MyTextInput'.Focused, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))
+
+# NOTE: Classic/TextInput .Focus = Supported, .Focused = NOT Supported
 ```
 
 ### 6.3 Component Event Call Syntax Errors
@@ -382,6 +389,91 @@ Set(varSelectedItem, ...)
 # ❌ SAI - Confusion giữa collections và variables
 Set(AllUsers, Table(...))  # Nên là ClearCollect(colAllUsers, ...)
 ClearCollect(CurrentUser, ...)  # Nên là Set(varCurrentUser, ...)
+```
+
+### 6.8 DataTable Filter Context Rules - CRITICAL
+**CRITICAL**: Trong Filter() context, sử dụng ThisRecord để reference current row, KHÔNG dùng disambiguation operator [@]:
+
+```yaml
+# ✅ ĐÚNG - Sử dụng ThisRecord trong Filter context
+Items: |
+  =Filter(User_1, 
+    And(
+      Or(IsBlank(varSearchText), varSearchText in fullname, varSearchText in email),
+      Or(IsBlank(varSelectedDepartment), 
+        LookUp(Department_1, departmentID = ThisRecord.departmentID).name = varSelectedDepartment),
+      Or(IsBlank(varSelectedRole), 
+        LookUp(Role_1, roleID = LookUp(User_Role, userID = ThisRecord.userID).roleID).name = varSelectedRole)
+    )
+  )
+
+# ❌ SAI - Disambiguation operator [@] không đúng context trong Filter
+Items: |
+  =Filter(User_1,
+    LookUp(Department_1, departmentID = User_1[@departmentID]).name = varSelectedDepartment
+  )
+
+# NOTE: Filter() tạo ra ThisRecord context cho mỗi row, KHÔNG phải table[@field] context
+```
+
+### 6.9 SharePoint Lookup Patterns - CRITICAL
+**CRITICAL**: Proper SharePoint lookup patterns trong complex filters:
+
+```yaml
+# ✅ ĐÚNG - Nested LookUp pattern cho SharePoint related tables
+Items: |
+  =Filter(Users, 
+    And(
+      searchText in fullname,
+      LookUp(Department, departmentID = ThisRecord.departmentID).name = selectedDept,
+      LookUp(Role, roleID = LookUp(User_Role, userID = ThisRecord.userID).roleID).name = selectedRole
+    )
+  )
+
+# ❌ SAI - Direct field access không work cho related tables
+Items: |
+  =Filter(Users,
+    And(
+      searchText in fullname,
+      ThisRecord.Department.name = selectedDept  # Error - không có direct relationship
+    )
+  )
+
+# ✅ ĐÚNG - ComboBox Selected property access
+departmentID: ='Department.Dropdown'.Selected.departmentID
+roleID: ='Role.Dropdown'.Selected.roleID
+
+# ❌ SAI - Indirect lookup when direct access available
+departmentID: =LookUp(Department, name = 'Department.Dropdown'.Selected.Name).departmentID
+```
+
+### 6.10 SharePoint UserID Generation Rules - CRITICAL
+**CRITICAL**: SharePoint tables cần unique userID, KHÔNG sử dụng user input làm primary key:
+
+```yaml
+# ✅ ĐÚNG - Generate unique userID cho SharePoint
+OnSelect: |
+  =With({
+    newUserID: Concatenate("USER_", Text(Rand() * 1000000, "000000"))
+  },
+    Patch(User_1, Defaults(User_1), {
+      userID: newUserID,
+      fullname: 'FullName.Input'.Text,
+      email: 'Email.Input'.Text
+    })
+  )
+
+# ✅ ĐÚNG - Alternative với timestamp
+newUserID: =Concatenate("USR_", Text(Now(), "yyyymmddhhmmss"))
+
+# ❌ SAI - Sử dụng user input làm primary key
+OnSelect: |
+  =Patch(User_1, Defaults(User_1), {
+    userID: 'FullName.Input'.Text,  # Có thể duplicate, không unique
+    fullname: 'FullName.Input'.Text
+  })
+
+# NOTE: SharePoint cần unique primary keys, user input không guarantee uniqueness
 ```
 
 ---
