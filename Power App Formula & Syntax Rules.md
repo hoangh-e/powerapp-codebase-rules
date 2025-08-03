@@ -24,6 +24,8 @@
 
 ## 1. FORMULA SYNTAX RULES
 
+> **⚠️ CRITICAL FOCUS RULE**: TẤT CẢ Input controls (bao gồm cả `Classic/TextInput`) KHÔNG được hỗ trợ `.Focus` hoặc `.Focused` properties. Sử dụng `FocusedBorderColor` và `FocusedBorderThickness` thay thế.
+
 ### 1.1 Leading Equals Sign
 **BẮT BUỘC**: Tất cả expressions phải bắt đầu với dấu equals `=`:
 
@@ -294,22 +296,26 @@ BorderColor: =If(Self.Focus, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))
 ```
 
 ### 6.2 Classic/TextInput Focus Property Error - CORRECTED
-**CRITICAL**: Classic/TextInput chỉ hỗ trợ .Focus property, KHÔNG hỗ trợ .Focused:
+**CRITICAL**: Classic/TextInput cũng KHÔNG được hỗ trợ .Focus hoặc .Focused properties:
 
 ```yaml
-# ✅ ĐÚNG - Sử dụng .Focus cho Classic/TextInput
-Visible: ='MyTextInput'.Focus
-BorderColor: =If('MyTextInput'.Focus, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))
+# ❌ SAI - Classic/TextInput KHÔNG được hỗ trợ .Focus
+Visible: ='MyTextInput'.Focus  # PA2108 Error
+BorderColor: =If('MyTextInput'.Focus, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))  # PA2108 Error
 
-# ❌ SAI - .Focused không được hỗ trợ cho Classic/TextInput
+# ❌ SAI - Classic/TextInput KHÔNG được hỗ trợ .Focused
 Visible: ='MyTextInput'.Focused  # PA2108 Error
-BorderColor: =If('MyTextInput'.Focused, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))
+BorderColor: =If('MyTextInput'.Focused, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))  # PA2108 Error
 
-# NOTE: Classic/TextInput .Focus = Supported, .Focused = NOT Supported
+# ✅ ĐÚNG - Sử dụng FocusedBorderColor thay thế
+FocusedBorderColor: =RGBA(0, 120, 212, 1)
+FocusedBorderThickness: =2
+
+# NOTE: Classic/TextInput .Focus = NOT Supported, .Focused = NOT Supported
 ```
 
 ### 6.3 Input & Dropdown Focus Property Restrictions - CRITICAL
-**CRITICAL**: TẤT CẢ Input controls (bao gồm "input" nói chung) KHÔNG có .Focus hoặc .Focused properties, CHỈ NGOẠI TRỪ Classic/TextInput:
+**CRITICAL**: TẤT CẢ Input controls (bao gồm "input" nói chung và Classic/TextInput) KHÔNG được hỗ trợ .Focus hoặc .Focused properties:
 
 ```yaml
 # ❌ SAI - Input controls không hỗ trợ focus properties
@@ -325,13 +331,13 @@ HoverFill: =RGBA(240, 240, 240, 1)
 PressedFill: =RGBA(0, 120, 212, 1)
 OnSelect: =Set(varControlSelected, true)
 
-# NOTE: TẤT CẢ Input controls (bao gồm "input" nói chung) KHÔNG có .Focus/.Focused properties:
-# Classic/DropDown, Classic/ComboBox, Classic/DatePicker, 
+# NOTE: TẤT CẢ Input controls (bao gồm "input" nói chung) KHÔNG được hỗ trợ .Focus/.Focused properties:
+# Classic/TextInput, Classic/DropDown, Classic/ComboBox, Classic/DatePicker, 
 # Classic/CheckBox, Classic/Radio, Classic/Toggle, Classic/Slider, Rating, PenInput
 # và tất cả input controls khác
 ```
 
-**Exception:** CHỈ `Classic/TextInput` hỗ trợ `.Focus` (KHÔNG hỗ trợ `.Focused`).
+**KHÔNG CÓ EXCEPTION:** TẤT CẢ Input controls bao gồm `Classic/TextInput` đều KHÔNG được hỗ trợ `.Focus` và `.Focused`.
 
 **RECOMMENDED APPROACH cho Input/Dropdown Focus:**
 - **Focus Styling**: `FocusedBorderColor`, `FocusedBorderThickness` 

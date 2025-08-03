@@ -33,6 +33,8 @@
 
 ## 1. ALLOWED CONTROLS
 
+> **⚠️ CRITICAL FOCUS RULE**: TẤT CẢ Input controls (bao gồm cả `Classic/TextInput`) KHÔNG được hỗ trợ `.Focus` hoặc `.Focused` properties. Sử dụng `FocusedBorderColor` và `FocusedBorderThickness` thay thế.
+
 ### 1.1 Input Controls
 ```yaml
 # Text Input
@@ -898,44 +900,55 @@ Variant: ="Custom"   # Custom variants not supported (PA2109)
 **Classic/TextInput Control** - Focus Property Rules:
 
 ```yaml
-# ✅ ĐÚNG - Classic/TextInput focus property
+# ❌ SAI - Classic/TextInput KHÔNG được hỗ trợ .Focus
 - MyTextInput:
     Control: Classic/TextInput
     Properties:
-      BorderColor: =If(Self.Focus, Colors.Primary, Colors.Border)
-      Fill: =If(Self.Focus, Colors.LightBlue, Colors.White)
+      BorderColor: =If(Self.Focus, Colors.Primary, Colors.Border)  # PA2108 Error
+      Fill: =If(Self.Focus, Colors.LightBlue, Colors.White)        # PA2108 Error
 
-# ❌ SAI - .Focused không được hỗ trợ cho Classic/TextInput
+# ❌ SAI - Classic/TextInput KHÔNG được hỗ trợ .Focused
 - MyTextInput:
     Control: Classic/TextInput
     Properties:
       BorderColor: =If(Self.Focused, Colors.Primary, Colors.Border)  # PA2108 Error
 
-# NOTE: Classic/TextInput chỉ hỗ trợ .Focus, KHÔNG hỗ trợ .Focused
+# ✅ ĐÚNG - Sử dụng FocusedBorderColor thay thế
+- MyTextInput:
+    Control: Classic/TextInput
+    Properties:
+      FocusedBorderColor: =Colors.Primary
+      FocusedBorderThickness: =2
+      BorderColor: =Colors.Border
+
+# NOTE: Classic/TextInput KHÔNG hỗ trợ .Focus và KHÔNG hỗ trợ .Focused
 ```
 
 **Classic/TextInput Control** - Validation Patterns:
 ```yaml
-# ✅ ĐÚNG - Real-time validation với Focus state
-BorderColor: =If(Self.Focus, 
-  Colors.Primary, 
-  If(IsBlank(Self.Text), Colors.Border, 
+# ✅ ĐÚNG - Real-time validation KHÔNG sử dụng Focus state
+BorderColor: =If(IsBlank(Self.Text), Colors.Border, 
     If(IsMatch(Self.Text, Email), Colors.Success, Colors.Error)
   )
-)
 
-# Visual validation với Focus detection
-ValidationIcon.Visible: =Self.Focus Or Not(IsBlank(Self.Text))
+# Visual validation KHÔNG sử dụng Focus detection
+ValidationIcon.Visible: =Not(IsBlank(Self.Text))
 ValidationIcon.Color: =If(IsBlank(Self.Text), Colors.Error, Colors.Success)
 ```
 
 ### 2.9 Input & Dropdown Focus Properties - CRITICAL
 **Input và Dropdown Controls** - Focus Property Restrictions:
 
-**CRITICAL**: TẤT CẢ Input controls (bao gồm cả "input" nói chung) KHÔNG có .Focus hoặc .Focused properties, CHỈ NGOẠI TRỪ Classic/TextInput.
+**CRITICAL**: TẤT CẢ Input controls (bao gồm cả "input" nói chung và Classic/TextInput) KHÔNG được hỗ trợ .Focus hoặc .Focused properties.
 
 ```yaml
-# ❌ SAI - Input controls (EXCEPT Classic/TextInput) KHÔNG có focus/focused properties
+# ❌ SAI - TẤT CẢ Input controls (bao gồm Classic/TextInput) KHÔNG có focus/focused properties
+- MyTextInput:
+    Control: Classic/TextInput
+    Properties:
+      BorderColor: =If(Self.Focus, Colors.Primary, Colors.Border)    # PA2108 Error
+      Fill: =If(Self.Focused, Colors.LightBlue, Colors.White)        # PA2108 Error
+
 - MyDropDown:
     Control: Classic/DropDown
     Properties:
@@ -953,6 +966,16 @@ ValidationIcon.Color: =If(IsBlank(Self.Text), Colors.Error, Colors.Success)
       Fill: =If(Self.Focused, Colors.LightBlue, Colors.White)        # PA2108 Error
 
 # ✅ ĐÚNG - Sử dụng OnSelect để theo dõi và FocusedBorderColor/FocusedBorderThickness cho focus styling
+- MyTextInput:
+    Control: Classic/TextInput
+    Properties:
+      FocusedBorderColor: =Colors.Primary
+      FocusedBorderThickness: =2
+      BorderColor: =Colors.Border
+      Fill: =Colors.White
+    OnChange: |
+      =Set(varTextInputChanged, true)
+
 - MyDropDown:
     Control: Classic/DropDown
     Properties:
@@ -985,23 +1008,24 @@ ValidationIcon.Color: =If(IsBlank(Self.Text), Colors.Error, Colors.Success)
     OnSelect: |
       =Set(varDateSelected, true)
 
-# NOTE: CHỈ Classic/TextInput hỗ trợ .Focus property. TẤT CẢ input controls khác (bao gồm "input" nói chung) KHÔNG có .Focus hoặc .Focused
+# NOTE: TẤT CẢ input controls (bao gồm Classic/TextInput và "input" nói chung) KHÔNG được hỗ trợ .Focus hoặc .Focused
 # THAY THẾ: Sử dụng FocusedBorderColor + FocusedBorderThickness cho focus styling và OnSelect cho tracking
 ```
 
-**Input Controls KHÔNG có Focus/Focused Properties:**
-- `Classic/DropDown` - KHÔNG hỗ trợ .Focus hoặc .Focused
-- `Classic/ComboBox` - KHÔNG hỗ trợ .Focus hoặc .Focused  
-- `Classic/DatePicker` - KHÔNG hỗ trợ .Focus hoặc .Focused
-- `Classic/CheckBox` - KHÔNG hỗ trợ .Focus hoặc .Focused
-- `Classic/Radio` - KHÔNG hỗ trợ .Focus hoặc .Focused
-- `Classic/Toggle` - KHÔNG hỗ trợ .Focus hoặc .Focused
-- `Classic/Slider` - KHÔNG hỗ trợ .Focus hoặc .Focused
-- `Rating` - KHÔNG hỗ trợ .Focus hoặc .Focused
-- `PenInput` - KHÔNG hỗ trợ .Focus hoặc .Focused
-- **Tất cả "input" controls khác** - KHÔNG hỗ trợ .Focus hoặc .Focused
+**Input Controls KHÔNG được hỗ trợ Focus/Focused Properties:**
+- `Classic/TextInput` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- `Classic/DropDown` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- `Classic/ComboBox` - KHÔNG được hỗ trợ .Focus hoặc .Focused  
+- `Classic/DatePicker` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- `Classic/CheckBox` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- `Classic/Radio` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- `Classic/Toggle` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- `Classic/Slider` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- `Rating` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- `PenInput` - KHÔNG được hỗ trợ .Focus hoặc .Focused
+- **Tất cả "input" controls khác** - KHÔNG được hỗ trợ .Focus hoặc .Focused
 
-**DUY NHẤT Exception:** CHỈ `Classic/TextInput` hỗ trợ `.Focus` property (KHÔNG hỗ trợ `.Focused`).
+**KHÔNG CÓ EXCEPTION:** TẤT CẢ Input controls bao gồm `Classic/TextInput` đều KHÔNG được hỗ trợ `.Focus` và `.Focused`.
 
 **RECOMMENDED APPROACH cho Input/Dropdown Focus:**
 - **Border Styling**: Sử dụng `FocusedBorderColor` và `FocusedBorderThickness` properties

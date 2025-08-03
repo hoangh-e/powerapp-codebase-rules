@@ -16,6 +16,8 @@
 
 ## 1. CẤU TRÚC FILE
 
+> **⚠️ CRITICAL FOCUS RULE**: TẤT CẢ Input controls (bao gồm cả `Classic/TextInput`) KHÔNG được hỗ trợ `.Focus` hoặc `.Focused` properties. Sử dụng `FocusedBorderColor` và `FocusedBorderThickness` thay thế.
+
 ### 1.1 Screens (Màn hình)
 **BẮT BUỘC**: Tất cả file screen PHẢI bắt đầu với `Screens:`
 
