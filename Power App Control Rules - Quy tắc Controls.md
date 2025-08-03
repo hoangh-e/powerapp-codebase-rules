@@ -106,11 +106,187 @@ Control: PartialCircle
 ```
 
 ### 1.6 Chart Controls
+
+**CRITICAL**: `ColumnChart` control KHÔNG TỒN TẠI. Sử dụng `BarChart` thay thế.
+
+#### 1.6.1 Các Chart Control được hỗ trợ
 ```yaml
-Control: BarChart
+# Bar/Column Charts
+Control: BarChart          # Dùng cho column charts và bar charts
+
+# Line Charts  
 Control: LineChart
+
+# Pie Charts
 Control: PieChart
-Control: Legend
+
+# Chart Legend
+Control: Legend             # Hiển thị legend cho charts
+```
+
+#### 1.6.2 Cấu trúc Chart Composite (BẮT BUỘC)
+**MANDATORY**: Charts PHẢI được tổ chức trong composite structure với Title, Chart, và Legend:
+
+```yaml
+# ✅ ĐÚNG - Composite Chart Structure
+- Title1:
+    Control: Label
+    Group: CompositeColumnChart1    # Group name để liên kết components
+    Properties:
+      Align: =Align.Center
+      BorderColor: =RGBA(0, 0, 0, 1)
+      Color: =RGBA(50, 49, 48, 1)
+      Font: =Font.'Segoe UI'
+      Height: =25
+      Size: =14
+      Text: ="Chart Title"
+      Width: =400
+      X: =40
+      Y: =40
+
+- ColumnChart1:
+    Control: BarChart              # ❗ QUAN TRỌNG: Dùng BarChart, KHÔNG phải ColumnChart
+    Group: CompositeColumnChart1    # Cùng group name
+    Properties:
+      BorderColor: =RGBA(0, 0, 0, 0)
+      BorderStyle: =BorderStyle.None
+      BorderThickness: =2
+      Color: =RGBA(50, 49, 48, 1)
+      Font: =Font.'Segoe UI'
+      ItemColorSet: =[RGBA(17, 141, 255, 1),RGBA(18,35,158, 1), RGBA(230,108,55,1), RGBA(107,0,123,1), RGBA(224,68,167,1), RGBA(116,78,194,1), RGBA(217,179,0,1), RGBA(214,69,80,1), RGBA(25, 114, 120, 1), RGBA(26, 171, 64, 1), RGBA(21, 198, 244, 1)]
+      Items.Labels: =City            # Chart labels data
+      Items.Series1: =Area           # Primary data series
+      Items.Series2: =Density        # Additional series (optional)
+      Items.Series3: =Population     # Additional series (optional)
+      Size: =15
+      X: =40
+      Y: =70
+
+- Legend1:
+    Control: Legend
+    Group: CompositeColumnChart1    # Cùng group name
+    Properties:
+      BorderColor: =RGBA(0, 0, 0, 0)
+      BorderStyle: =BorderStyle.None
+      Color: =RGBA(50, 49, 48, 1)
+      Font: =Font.'Segoe UI'
+      Height: =80
+      ItemColorSet: =ColumnChart1.ItemColorSet  # Reference đến chart colors
+      Items: =ColumnChart1.SeriesLabels         # Reference đến chart series
+      Items.Value: =Value
+      Width: =320
+      X: =80
+      Y: =480
+```
+
+#### 1.6.3 Chart Control Errors & Solutions
+**COMMON ERROR**: `Unknown control type 'ColumnChart'`
+```yaml
+# ❌ SAI - Control không tồn tại
+Control: ColumnChart
+
+# ✅ ĐÚNG - Sử dụng BarChart
+Control: BarChart
+```
+
+#### 1.6.4 Chart Properties Requirements
+**BẮT BUỘC** properties cho chart controls:
+- `Items.Labels` - Data source cho chart labels
+- `Items.Series1` - Primary data series (minimum requirement)
+- `ItemColorSet` - Color palette cho chart
+- `Group` - Group name để liên kết với Title và Legend
+
+**TÙY CHỌN** properties:
+- `Items.Series2`, `Items.Series3`, etc. - Additional data series (chỉ cho BarChart/LineChart)
+- `BorderStyle`, `BorderColor`, `BorderThickness` - Chart border styling
+
+#### 1.6.5 PieChart Composite Structure (BẮT BUỘC)
+**MANDATORY**: PieChart cũng PHẢI được tổ chức trong composite structure:
+
+```yaml
+# ✅ ĐÚNG - Composite PieChart Structure
+- Title3:
+    Control: Label
+    Group: CompositePieChart1       # Group name để liên kết components
+    Properties:
+      Align: =Align.Center
+      BorderColor: =RGBA(0, 0, 0, 1)
+      Color: =RGBA(50, 49, 48, 1)
+      DisabledColor: =RGBA(161, 159, 157, 1)
+      Font: =Font.'Segoe UI'
+      Height: =25
+      Size: =14
+      Text: ="Chart Title"
+      Width: =400
+      X: =60
+      Y: =60
+
+- PieChart1:
+    Control: PieChart               # PieChart control (không có version number)
+    Group: CompositePieChart1       # Cùng group name
+    Properties:
+      BorderColor: =RGBA(0, 0, 0, 0)
+      BorderStyle: =BorderStyle.None
+      BorderThickness: =2
+      Color: =RGBA(50, 49, 48, 1)
+      DisabledBorderColor: =RGBA(0, 0, 0, 0)
+      Font: =Font.'Segoe UI'
+      HoverBorderColor: =RGBA(0, 0, 0, 0)
+      ItemColorSet: =[RGBA(17, 141, 255, 1),RGBA(18,35,158, 1), RGBA(230,108,55,1), RGBA(107,0,123,1), RGBA(224,68,167,1), RGBA(116,78,194,1), RGBA(217,179,0,1), RGBA(214,69,80,1), RGBA(25, 114, 120, 1), RGBA(26, 171, 64, 1), RGBA(21, 198, 244, 1)]
+      Items.Labels: =City           # Chart labels data
+      Items.Series: =Area           # ❗ QUAN TRỌNG: PieChart chỉ dùng Items.Series (không có Series1, Series2)
+      PressedBorderColor: =RGBA(0, 0, 0, 0)
+      Size: =15
+      X: =60
+      Y: =90
+
+- Legend3:
+    Control: Legend
+    Group: CompositePieChart1       # Cùng group name
+    Properties:
+      BorderColor: =RGBA(0, 0, 0, 0)
+      BorderStyle: =BorderStyle.None
+      BorderThickness: =2
+      Color: =RGBA(50, 49, 48, 1)
+      DisabledBorderColor: =RGBA(0, 0, 0, 0)
+      DisabledColor: =RGBA(161, 159, 157, 1)
+      DisabledFill: =RGBA(225, 223, 221, 1)
+      Font: =Font.'Segoe UI'
+      Height: =200
+      HoverBorderColor: =RGBA(0, 0, 0, 0)
+      ItemColorSet: =PieChart1.ItemColorSet    # Reference đến pie chart colors
+      Items: =PieChart1.SeriesLabels           # Reference đến pie chart series
+      Items.Value: =Value
+      PressedBorderColor: =RGBA(0, 0, 0, 0)
+      Size: =16
+      Width: =400
+      X: =60
+      Y: =490
+```
+
+#### 1.6.6 Khác biệt giữa BarChart và PieChart Properties
+**CRITICAL DIFFERENCES**:
+
+**BarChart (Column Charts)**:
+- Sử dụng `Items.Series1`, `Items.Series2`, etc. cho multiple data series
+- Hỗ trợ multiple data series trên cùng một chart
+
+**PieChart**:
+- Chỉ sử dụng `Items.Series` (singular) cho single data series  
+- KHÔNG hỗ trợ multiple series (Items.Series1, Items.Series2 sẽ gây lỗi)
+
+```yaml
+# ✅ ĐÚNG - BarChart multiple series
+Items.Series1: =Area
+Items.Series2: =Population
+Items.Series3: =Density
+
+# ✅ ĐÚNG - PieChart single series
+Items.Series: =Area
+
+# ❌ SAI - PieChart với multiple series
+Items.Series1: =Area      # Sẽ gây lỗi
+Items.Series2: =Population
 ```
 
 ### 1.7 Media & Data Controls
