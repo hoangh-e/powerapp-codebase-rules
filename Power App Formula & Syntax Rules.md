@@ -18,6 +18,7 @@
 - [SharePoint Filter Context Rules](#610-sharepoint-filter-context-rules)
 - [Collection Creation Anti-Patterns](#611-collection-creation-anti-patterns)
 - [SharePoint UserID Generation Rules](#612-sharepoint-userid-generation-rules)
+- [AddColumns Column Name Consistency](#614-addcolumns-column-name-consistency---critical)
 
 ---
 
@@ -582,6 +583,56 @@ OnSelect: |
   })
 
 # NOTE: SharePoint cần unique primary keys, user input không guarantee uniqueness
+```
+
+### 6.14 AddColumns Column Name Consistency - CRITICAL
+**CRITICAL**: Trong AddColumns function, TẤT CẢ column names PHẢI có consistent quoting. LUÔN LUÔN wrap column names bằng double quotes:
+
+```yaml
+# ✅ ĐÚNG - Consistent double quotes cho tất cả column names
+ClearCollect(colUsers, 
+  AddColumns(
+    AddColumns(User_1, 
+      "Department", LookUp(Department_1, departmentID = ThisRecord.departmentID).name
+    ),
+    "Role", LookUp(Role_1, roleID = LookUp(User_Role, userID = ThisRecord.userID).roleID).name
+  )
+)
+
+# ✅ ĐÚNG - Multiple AddColumns với consistent quoting
+ClearCollect(colUserData,
+  AddColumns(
+    AddColumns(
+      AddColumns(User_1,
+        "Department", LookUp(Department_1, departmentID = ThisRecord.departmentID).name
+      ),
+      "Role", LookUp(Role_1, roleID = LookUp(User_Role, userID = ThisRecord.userID).roleID).name
+    ),
+    "Status", If(IsBlank(ThisRecord.lastLogin), "Inactive", "Active")
+  )
+)
+
+# ❌ SAI - Inconsistent quoting - mix của quoted và unquoted column names
+ClearCollect(colUsers, 
+  AddColumns(
+    AddColumns(User_1, 
+      "Department", LookUp(Department_1, departmentID = ThisRecord.departmentID).name
+    ),
+    Role, LookUp(Role_1, roleID = LookUp(User_Role, userID = ThisRecord.userID).roleID).name  # SAI - Missing quotes
+  )
+)
+
+# ❌ SAI - Mixed quoting styles
+ClearCollect(colUsers, 
+  AddColumns(
+    AddColumns(User_1, 
+      'Department', LookUp(Department_1, departmentID = ThisRecord.departmentID).name  # SAI - Single quotes
+    ),
+    "Role", LookUp(Role_1, roleID = LookUp(User_Role, userID = ThisRecord.userID).roleID).name
+  )
+)
+
+# NOTE: Column name inconsistency gây syntax errors và parsing issues trong Power Apps
 ```
 
 ---

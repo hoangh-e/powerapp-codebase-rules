@@ -11,8 +11,9 @@
 4. [Filter Query Restrictions](#4-filter-query-restrictions)
 5. [Delegation Handling Rules](#5-delegation-handling-rules)
 6. [Control Version Restrictions](#6-control-version-restrictions)
-7. [Implementation Checklist](#7-implementation-checklist)
-8. [Real-World Examples](#8-real-world-examples)
+7. [CRUD Operations with Lookup Columns](#7-crud-operations-with-lookup-columns)
+8. [Implementation Checklist](#8-implementation-checklist)
+9. [Real-World Examples](#9-real-world-examples)
 
 ---
 
@@ -410,7 +411,7 @@ Control: Classic/Button
 
 ---
 
-## 6. IMPLEMENTATION CHECKLIST - MANDATORY
+## 8. IMPLEMENTATION CHECKLIST - MANDATORY
 
 ### Pre-Development Checks:
 - [ ] SharePoint lookup complexity assessment completed
@@ -436,6 +437,10 @@ Control: Classic/Button
 - [ ] Pre-filtering implemented for datasets >500 records (Rule 12)
 - [ ] Delegation-friendly search patterns implemented (Rule 13)
 - [ ] Delegation warnings monitored and addressed (Rule 14)
+- [ ] Lookup column updates use proper {Id, Value} object format (Rule 15)
+- [ ] Multiple lookup columns handled separately với variables (Rule 16)
+- [ ] New record creation với lookup columns follows proper pattern (Rule 17)
+- [ ] Error handling implemented for all lookup operations (Rule 18)
 
 ### Testing Requirements:
 - [ ] OnVisible loads without "invalid string in filter query" errors
@@ -447,10 +452,221 @@ Control: Classic/Button
 - [ ] Search operations work efficiently with >500 records
 - [ ] Pre-filtering reduces dataset size appropriately
 - [ ] No PA2108/PA2109 errors trong Power Apps studio
+- [ ] Lookup column Patch operations successful với proper object format
+- [ ] Multiple lookup columns update correctly without conflicts
+- [ ] New record creation với lookup columns works reliably
+- [ ] Error handling for lookup operations provides meaningful feedback
 
 ---
 
-## 7. REAL-WORLD EXAMPLES - USERMANAGEMENTSCREEN
+## 7. CRUD OPERATIONS WITH LOOKUP COLUMNS - CRITICAL PATTERNS
+
+### Rule 15: SharePoint Lookup Column Update Pattern - CRITICAL
+**ALWAYS** create proper lookup objects when updating SharePoint lookup columns với Patch operations:
+
+```yaml
+# ✅ CORRECT - Proper lookup column update pattern
+OnSelect: |
+  // Update user information with lookup column
+  Set(
+    varDepartmentLookup,
+    {
+      Id: LookUp(Department_1, name = 'Detail.Department.Dropdown_2'.Selected.name).ID,
+      Value: 'Detail.Department.Dropdown_2'.Selected.name
+    }
+  );
+  Patch(
+    User_1,
+    LookUp(User_1, userID = varSelectedUser.userID),
+    {
+      fullname: 'Detail.FullName.Input_2'.Text,
+      email: 'Detail.Email.Input_2'.Text,
+      departmentID: varDepartmentLookup,
+      jobTitle: 'Detail.JobTitle.Input_2'.Text,
+      phone: 'Detail.Phone.Input_2'.Text
+    }
+  )
+
+# ❌ WRONG - Direct value assignment to lookup column
+Patch(
+  User_1,
+  LookUp(User_1, userID = varSelectedUser.userID),
+  {
+    departmentID: 'Detail.Department.Dropdown_2'.Selected.name  // ERROR - Wrong format
+  }
+)
+
+# ❌ WRONG - Missing Id property in lookup object
+Set(
+  varDepartmentLookup,
+  {
+    Value: 'Detail.Department.Dropdown_2'.Selected.name  // ERROR - Missing Id
+  }
+);
+Patch(User_1, record, { departmentID: varDepartmentLookup })
+```
+
+**WHY**: SharePoint lookup columns require specific object format với both `Id` và `Value` properties để properly establish relationships.
+
+### Rule 16: Multiple Lookup Columns Pattern - CRITICAL
+**ALWAYS** handle multiple lookup columns separately when updating SharePoint records:
+
+```yaml
+# ✅ CORRECT - Multiple lookup columns với separate variable creation
+OnSelect: |
+  // Create department lookup object
+  Set(
+    varDepartmentLookup,
+    {
+      Id: LookUp(Department_1, name = 'Department.Dropdown'.Selected.name).ID,
+      Value: 'Department.Dropdown'.Selected.name
+    }
+  );
+  
+  // Create role lookup object  
+  Set(
+    varRoleLookup,
+    {
+      Id: LookUp(Role_1, name = 'Role.Dropdown'.Selected.name).ID,
+      Value: 'Role.Dropdown'.Selected.name
+    }
+  );
+  
+  // Single Patch operation with all lookup columns
+  Patch(
+    User_1,
+    LookUp(User_1, userID = varSelectedUser.userID),
+    {
+      fullname: 'FullName.Input'.Text,
+      email: 'Email.Input'.Text,
+      departmentID: varDepartmentLookup,
+      roleID: varRoleLookup,
+      jobTitle: 'JobTitle.Input'.Text,
+      phone: 'Phone.Input'.Text
+    }
+  )
+
+# ❌ WRONG - Inline lookup creation trong Patch
+Patch(
+  User_1,
+  LookUp(User_1, userID = varSelectedUser.userID),
+  {
+    departmentID: {
+      Id: LookUp(Department_1, name = 'Department.Dropdown'.Selected.name).ID,
+      Value: 'Department.Dropdown'.Selected.name
+    },  // ERROR - Complex inline operations can cause parsing errors
+    roleID: {
+      Id: LookUp(Role_1, name = 'Role.Dropdown'.Selected.name).ID, 
+      Value: 'Role.Dropdown'.Selected.name
+    }
+  }
+)
+```
+
+**WHY**: Separating lookup object creation improves reliability, error handling, và makes debugging easier.
+
+### Rule 17: Lookup Column Creation Pattern - NEW RECORDS
+**ALWAYS** use proper lookup format when creating new records với lookup columns:
+
+```yaml
+# ✅ CORRECT - New record creation với lookup columns
+OnSelect: |
+  With({
+    newUserID: Concatenate("USER_", Text(Rand() * 1000000, "000000"))
+  },
+    // Create department lookup for new record
+    Set(
+      varNewDepartmentLookup,
+      {
+        Id: LookUp(Department_1, name = 'Department.Dropdown'.Selected.name).ID,
+        Value: 'Department.Dropdown'.Selected.name
+      }
+    );
+    
+    // Create new user record với lookup column
+    Patch(User_1, Defaults(User_1), {
+      userID: newUserID,
+      fullname: 'FullName.Input'.Text,
+      email: 'Email.Input'.Text,
+      departmentID: varNewDepartmentLookup,
+      jobTitle: 'JobTitle.Input'.Text,
+      phone: 'Phone.Input'.Text
+    });
+    
+    // Create related record if needed
+    Patch(User_Role, Defaults(User_Role), {
+      userID: newUserID,
+      roleID: 'Role.Dropdown'.Selected.roleID
+    })
+  )
+
+# ❌ WRONG - Direct ComboBox reference to lookup column
+Patch(User_1, Defaults(User_1), {
+  departmentID: 'Department.Dropdown'.Selected  // ERROR - Wrong object structure
+})
+```
+
+**WHY**: SharePoint requires consistent lookup object format for both create và update operations.
+
+### Rule 18: Error Handling cho Lookup Operations - CRITICAL
+**ALWAYS** implement error handling when working với lookup columns:
+
+```yaml
+# ✅ CORRECT - Comprehensive error handling for lookup operations
+OnSelect: |
+  Set(varErrorMessage, "");
+  
+  // Validate lookup selections
+  If(
+    IsBlank('Department.Dropdown'.Selected),
+    Set(varErrorMessage, "Please select a department");
+    Notify("Please select a department", NotificationType.Warning),
+    
+    // Proceed with lookup creation và update
+    IfError(
+      // Create lookup object
+      Set(
+        varDepartmentLookup,
+        {
+          Id: LookUp(Department_1, name = 'Department.Dropdown'.Selected.name).ID,
+          Value: 'Department.Dropdown'.Selected.name
+        }
+      );
+      
+      // Validate lookup object creation
+      If(
+        IsBlank(varDepartmentLookup.Id),
+        Set(varErrorMessage, "Department lookup failed");
+        Notify("Selected department not found", NotificationType.Error),
+        
+        // Proceed with Patch operation
+        Patch(
+          User_1,
+          LookUp(User_1, userID = varSelectedUser.userID),
+          {
+            fullname: 'FullName.Input'.Text,
+            departmentID: varDepartmentLookup
+          }
+        );
+        Notify("User updated successfully", NotificationType.Success)
+      ),
+      
+      // Error recovery
+      Set(varErrorMessage, FirstError.Message);
+      Notify("Update failed: " & FirstError.Message, NotificationType.Error)
+    )
+  )
+
+# ❌ WRONG - No error handling for lookup operations
+Set(varDepartmentLookup, { Id: LookUp(...).ID, Value: "..." });
+Patch(User_1, record, { departmentID: varDepartmentLookup })  // No validation
+```
+
+**WHY**: Lookup operations can fail due to missing references, permission issues, or network problems. Proper error handling ensures user experience và data integrity.
+
+---
+
+## 9. REAL-WORLD EXAMPLES - USERMANAGEMENTSCREEN
 
 ### Example 1: Proper SharePoint Data Loading
 **FROM UserManagementScreen PROJECT:**
