@@ -307,7 +307,37 @@ BorderColor: =If('MyTextInput'.Focused, RGBA(0, 120, 212, 1), RGBA(200, 200, 200
 # NOTE: Classic/TextInput .Focus = Supported, .Focused = NOT Supported
 ```
 
-### 6.3 Component Event Call Syntax Errors
+### 6.3 Input & Dropdown Focus Property Restrictions - CRITICAL
+**CRITICAL**: TẤT CẢ Input controls (bao gồm "input" nói chung) KHÔNG có .Focus hoặc .Focused properties, CHỈ NGOẠI TRỪ Classic/TextInput:
+
+```yaml
+# ❌ SAI - Input controls không hỗ trợ focus properties
+BorderColor: =If('MyDropDown'.Focus, RGBA(0, 120, 212, 1), RGBA(200, 200, 200, 1))     # PA2108 Error
+Fill: =If('MyComboBox'.Focused, RGBA(240, 240, 240, 1), RGBA(255, 255, 255, 1))        # PA2108 Error
+Visible: ='MyDatePicker'.Focus                                                           # PA2108 Error
+
+# ✅ ĐÚNG - Sử dụng FocusedBorderColor/FocusedBorderThickness và OnSelect cho tracking
+FocusedBorderColor: =RGBA(0, 120, 212, 1)
+FocusedBorderThickness: =2
+BorderColor: =RGBA(200, 200, 200, 1)
+HoverFill: =RGBA(240, 240, 240, 1)
+PressedFill: =RGBA(0, 120, 212, 1)
+OnSelect: =Set(varControlSelected, true)
+
+# NOTE: TẤT CẢ Input controls (bao gồm "input" nói chung) KHÔNG có .Focus/.Focused properties:
+# Classic/DropDown, Classic/ComboBox, Classic/DatePicker, 
+# Classic/CheckBox, Classic/Radio, Classic/Toggle, Classic/Slider, Rating, PenInput
+# và tất cả input controls khác
+```
+
+**Exception:** CHỈ `Classic/TextInput` hỗ trợ `.Focus` (KHÔNG hỗ trợ `.Focused`).
+
+**RECOMMENDED APPROACH cho Input/Dropdown Focus:**
+- **Focus Styling**: `FocusedBorderColor`, `FocusedBorderThickness` 
+- **State Tracking**: `OnSelect` event với Set() functions
+- **Visual Feedback**: `HoverFill`, `PressedFill` properties
+
+### 6.4 Component Event Call Syntax Errors
 **CRITICAL**: Sử dụng correct event call syntax:
 
 ```yaml
@@ -325,7 +355,7 @@ OnSelect: =NavigationComponent.OnNavigate; Set(varActiveScreen, "Dashboard")
 OnSelect: =NavigationComponent.OnNavigate(); Set(varActiveScreen, "Dashboard")
 ```
 
-### 6.4 YAML Indentation Errors
+### 6.5 YAML Indentation Errors
 **CRITICAL**: Tránh indentation errors gây "did not find expected key":
 
 ```yaml
@@ -350,7 +380,7 @@ Children:
       Control: Rectangle
 ```
 
-### 6.5 Import Function Restrictions
+### 6.6 Import Function Restrictions
 **CRITICAL**: `Import()` function không được hỗ trợ trong Power Apps formulas:
 
 ```yaml
@@ -362,7 +392,7 @@ OnSelect: |
   =Set(varImportedDataCount, Rand() * 10 + 5); Set(varDisplayText, Text(Round(varImportedDataCount, 0)) & " records imported")
 ```
 
-### 6.6 Table Schema Compatibility
+### 6.7 Table Schema Compatibility
 **CRITICAL**: KHÔNG BAO GIỜ sử dụng `Set(varName, Table(...))` cho complex data structures:
 
 ```yaml
@@ -374,7 +404,7 @@ OnVisible: |
   =ClearCollect(colMyData, {Name: "John", Age: 30}, {Name: "Jane", Age: 25})
 ```
 
-### 6.7 Collection Naming Conventions
+### 6.8 Collection Naming Conventions
 **CRITICAL**: Sử dụng naming conventions đúng:
 
 ```yaml
@@ -393,7 +423,7 @@ Set(AllUsers, Table(...))  # Nên là ClearCollect(colAllUsers, ...)
 ClearCollect(CurrentUser, ...)  # Nên là Set(varCurrentUser, ...)
 ```
 
-### 6.8 DataTable Filter Context Rules - CRITICAL
+### 6.9 DataTable Filter Context Rules - CRITICAL
 **CRITICAL**: Trong Filter() context, sử dụng ThisRecord để reference current row, KHÔNG dùng disambiguation operator [@]:
 
 ```yaml
@@ -418,7 +448,7 @@ Items: |
 # NOTE: Filter() tạo ra ThisRecord context cho mỗi row, KHÔNG phải table[@field] context
 ```
 
-### 6.9 SharePoint Lookup Patterns - CRITICAL
+### 6.10 SharePoint Lookup Patterns - CRITICAL
 **CRITICAL**: Proper SharePoint lookup patterns trong complex filters:
 
 ```yaml
@@ -449,7 +479,7 @@ roleID: ='Role.Dropdown'.Selected.roleID
 departmentID: =LookUp(Department, name = 'Department.Dropdown'.Selected.Name).departmentID
 ```
 
-### 6.10 SharePoint Filter Context Rules - CRITICAL (Rules 8-9)
+### 6.11 SharePoint Filter Context Rules - CRITICAL (Rules 8-9)
 **NEVER** sử dụng string literals trong filter field references (Rule 8):
 
 ```yaml
@@ -486,7 +516,7 @@ Items: =Filter(User_1,
 )
 ```
 
-### 6.11 Collection Creation Anti-Patterns - CRITICAL (Rules 4-5)
+### 6.12 Collection Creation Anti-Patterns - CRITICAL (Rules 4-5)
 **NEVER** sử dụng Concat() để combine tables (Rule 4):
 
 ```yaml
@@ -525,7 +555,7 @@ ClearCollect(colFilter,
 )
 ```
 
-### 6.12 SharePoint UserID Generation Rules - CRITICAL
+### 6.13 SharePoint UserID Generation Rules - CRITICAL
 **CRITICAL**: SharePoint tables cần unique userID, KHÔNG sử dụng user input làm primary key:
 
 ```yaml

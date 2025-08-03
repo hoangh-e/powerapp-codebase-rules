@@ -25,8 +25,9 @@
 
 **NEW Control Property Rules:**
 - [Classic/TextInput Focus Properties](#28-classictextinput-focus-properties)
-- [Collection vs Text Function Rules](#29-collection-vs-text-function-rules)
-- [Table() Function Restrictions](#210-table-function-restrictions---critical)
+- [Input & Dropdown Focus Properties](#29-input--dropdown-focus-properties---critical)
+- [Collection vs Text Function Rules](#210-collection-vs-text-function-rules)
+- [Table() Function Restrictions](#211-table-function-restrictions---critical)
 
 ---
 
@@ -928,7 +929,86 @@ ValidationIcon.Visible: =Self.Focus Or Not(IsBlank(Self.Text))
 ValidationIcon.Color: =If(IsBlank(Self.Text), Colors.Error, Colors.Success)
 ```
 
-### 2.9 Collection vs Text Function Rules - CRITICAL
+### 2.9 Input & Dropdown Focus Properties - CRITICAL
+**Input và Dropdown Controls** - Focus Property Restrictions:
+
+**CRITICAL**: TẤT CẢ Input controls (bao gồm cả "input" nói chung) KHÔNG có .Focus hoặc .Focused properties, CHỈ NGOẠI TRỪ Classic/TextInput.
+
+```yaml
+# ❌ SAI - Input controls (EXCEPT Classic/TextInput) KHÔNG có focus/focused properties
+- MyDropDown:
+    Control: Classic/DropDown
+    Properties:
+      BorderColor: =If(Self.Focus, Colors.Primary, Colors.Border)    # PA2108 Error
+      Fill: =If(Self.Focused, Colors.LightBlue, Colors.White)        # PA2108 Error
+
+- MyComboBox:
+    Control: Classic/ComboBox  
+    Properties:
+      BorderColor: =If(Self.Focus, Colors.Primary, Colors.Border)    # PA2108 Error
+
+- MyDatePicker:
+    Control: Classic/DatePicker
+    Properties:
+      Fill: =If(Self.Focused, Colors.LightBlue, Colors.White)        # PA2108 Error
+
+# ✅ ĐÚNG - Sử dụng OnSelect để theo dõi và FocusedBorderColor/FocusedBorderThickness cho focus styling
+- MyDropDown:
+    Control: Classic/DropDown
+    Properties:
+      FocusedBorderColor: =Colors.Primary
+      FocusedBorderThickness: =2
+      BorderColor: =Colors.Border
+      Fill: =Colors.White
+    OnSelect: |
+      =Set(varDropdownSelected, true)
+    
+# ✅ ĐÚNG - Sử dụng FocusedBorderColor thay vì .Focus property
+- MyComboBox:
+    Control: Classic/ComboBox
+    Properties:
+      FocusedBorderColor: =Colors.Primary
+      FocusedBorderThickness: =2
+      HoverFill: =Colors.LightBlue
+      PressedFill: =Colors.Primary
+      BorderColor: =Colors.Border
+    OnSelect: |
+      =Set(varComboBoxSelected, true)
+
+# ✅ ĐÚNG - DatePicker với focus styling
+- MyDatePicker:
+    Control: Classic/DatePicker
+    Properties:
+      FocusedBorderColor: =Colors.Primary
+      FocusedBorderThickness: =2
+      BorderColor: =Colors.Border
+    OnSelect: |
+      =Set(varDateSelected, true)
+
+# NOTE: CHỈ Classic/TextInput hỗ trợ .Focus property. TẤT CẢ input controls khác (bao gồm "input" nói chung) KHÔNG có .Focus hoặc .Focused
+# THAY THẾ: Sử dụng FocusedBorderColor + FocusedBorderThickness cho focus styling và OnSelect cho tracking
+```
+
+**Input Controls KHÔNG có Focus/Focused Properties:**
+- `Classic/DropDown` - KHÔNG hỗ trợ .Focus hoặc .Focused
+- `Classic/ComboBox` - KHÔNG hỗ trợ .Focus hoặc .Focused  
+- `Classic/DatePicker` - KHÔNG hỗ trợ .Focus hoặc .Focused
+- `Classic/CheckBox` - KHÔNG hỗ trợ .Focus hoặc .Focused
+- `Classic/Radio` - KHÔNG hỗ trợ .Focus hoặc .Focused
+- `Classic/Toggle` - KHÔNG hỗ trợ .Focus hoặc .Focused
+- `Classic/Slider` - KHÔNG hỗ trợ .Focus hoặc .Focused
+- `Rating` - KHÔNG hỗ trợ .Focus hoặc .Focused
+- `PenInput` - KHÔNG hỗ trợ .Focus hoặc .Focused
+- **Tất cả "input" controls khác** - KHÔNG hỗ trợ .Focus hoặc .Focused
+
+**DUY NHẤT Exception:** CHỈ `Classic/TextInput` hỗ trợ `.Focus` property (KHÔNG hỗ trợ `.Focused`).
+
+**RECOMMENDED APPROACH cho Input/Dropdown Focus:**
+- **Border Styling**: Sử dụng `FocusedBorderColor` và `FocusedBorderThickness` properties
+- **Tracking**: Sử dụng `OnSelect` event để set variables cho state management
+- **Alternative**: `HoverFill`, `PressedFill` cho visual feedback
+
+### 2.10 Collection vs Text Function Rules - CRITICAL
 **Collection Functions** - Proper Usage:
 
 ```yaml
@@ -959,7 +1039,7 @@ Text: =Concat(Table({Value: "Hello"}), Table({Value: userName}))
 - **& operator** = Text concatenation alternative
 - **Union()** = Table combination alternative
 
-### 2.10 Table() Function Restrictions - CRITICAL
+### 2.11 Table() Function Restrictions - CRITICAL
 **ALWAYS AVOID Table()** - Use Collection Management Functions Instead:
 
 ```yaml
@@ -1195,9 +1275,10 @@ Variant: 12Points
 79. **DATATABLE SELECTION HANDLING** - CRITICAL: DataTable does NOT support OnSelectionChange (PA2108 error). Use separate overlay Rectangle with OnSelect to detect DataTable.Selected for context menus
 80. **CONTEXT MENU Z-INDEX** - CRITICAL: Context menus must be positioned LAST trong Children array để ensure highest z-index
 81. **CLASSIC/TEXTINPUT FOCUS PROPERTY** - CRITICAL: Classic/TextInput chỉ hỗ trợ .Focus, KHÔNG hỗ trợ .Focused (PA2108 error)
-82. **COLLECTION VS TEXT FUNCTIONS** - CRITICAL: Concatenate() cho text only, Concat() cho collections/tables only. Wrong usage causes invalid argument errors
-83. **TABLE() FUNCTION RESTRICTIONS** - CRITICAL: ALWAYS AVOID Table() function. Use ClearCollect/Collect/Remove/Update instead for better performance và state management. Table() only acceptable for single-use lookups/calculations
-84. **DATATABLE ONSELECTIONCHANGE PA2108 ERROR** - CRITICAL: DataTable does NOT support OnSelectionChange property (PA2108 error). Use separate Rectangle overlay with OnSelect positioned over DataTable for selection handling
+82. **INPUT & DROPDOWN FOCUS RESTRICTIONS** - CRITICAL: TẤT CẢ Input controls (bao gồm "input" nói chung) KHÔNG có .Focus hoặc .Focused properties (PA2108 error), CHỈ NGOẠI TRỪ Classic/TextInput. SỬ DỤNG: FocusedBorderColor + FocusedBorderThickness cho styling, OnSelect cho tracking. Includes Classic/DropDown, Classic/ComboBox, Classic/DatePicker, Classic/CheckBox, Classic/Radio, Classic/Toggle, Classic/Slider, Rating, PenInput
+83. **COLLECTION VS TEXT FUNCTIONS** - CRITICAL: Concatenate() cho text only, Concat() cho collections/tables only. Wrong usage causes invalid argument errors
+84. **TABLE() FUNCTION RESTRICTIONS** - CRITICAL: ALWAYS AVOID Table() function. Use ClearCollect/Collect/Remove/Update instead for better performance và state management. Table() only acceptable for single-use lookups/calculations
+85. **DATATABLE ONSELECTIONCHANGE PA2108 ERROR** - CRITICAL: DataTable does NOT support OnSelectionChange property (PA2108 error). Use separate Rectangle overlay with OnSelect positioned over DataTable for selection handling
 
 ---
 
