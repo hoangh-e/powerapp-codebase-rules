@@ -461,6 +461,23 @@ Control: Classic/Button
 
 ## 7. CRUD OPERATIONS WITH LOOKUP COLUMNS - CRITICAL PATTERNS
 
+### Rule 14.5: Dropdown Selected Property Field Names - CRITICAL CLARIFICATION
+**IMPORTANT**: Với dropdown `Selected.{x}`, field name `x` phụ thuộc vào tên field được chọn trong dropdown configuration:
+
+```yaml
+# ✅ CORRECT - Selected property tùy thuộc vào field name
+'Detail.Department.Dropdown'.Selected.name      # Nếu dropdown hiển thị field "name"
+'Detail.Role.Dropdown'.Selected.roleName        # Nếu dropdown hiển thị field "roleName"  
+'Detail.Status.Dropdown'.Selected.statusText    # Nếu dropdown hiển thị field "statusText"
+'Detail.Category.Dropdown'.Selected.categoryID  # Nếu dropdown hiển thị field "categoryID"
+
+# ❌ WRONG - Không được assume tất cả dropdowns đều dùng "name"
+'Detail.Role.Dropdown'.Selected.name            # ERROR - Nếu dropdown field không phải "name"
+'Detail.Status.Dropdown'.Selected.name          # ERROR - Nếu dropdown field không phải "name"
+```
+
+**WHY**: Dropdown `Selected.{x}` property phải match với exact field name được configure trong dropdown's Items property.
+
 ### Rule 15: SharePoint Lookup Column Update Pattern - CRITICAL
 **ALWAYS** create proper lookup objects when updating SharePoint lookup columns với Patch operations:
 
@@ -506,7 +523,46 @@ Set(
 Patch(User_1, record, { departmentID: varDepartmentLookup })
 ```
 
-**WHY**: SharePoint lookup columns require specific object format với both `Id` và `Value` properties để properly establish relationships.
+**WHY**: SharePoint lookup columns require specific object format với EXACTLY two properties: `Id` và `Value` - không thêm fields khác. Đây là mandatory format cho tất cả lookup column operations.
+
+### Rule 15.5: Corrected Lookup Pattern Example - UPDATED
+**CORRECTED EXAMPLE** based on proper Selected property usage và mandatory {Id, Value} format:
+
+```yaml
+# ✅ CORRECT - Updated pattern với proper Selected.name usage
+OnSelect: |
+  Set(
+    varDepartmentLookup,
+    LookUp(Department_1, name = 'Detail.Department.Dropdown'.Selected.name)
+  );
+  Set(
+    varRoleLookup, 
+    LookUp(Role_1, name = 'Detail.Role.Dropdown'.Selected.name)
+  );
+
+  // Update SharePoint data with error handling
+  IfError(
+    // Update user information
+    Patch(
+      User_1,
+      LookUp(User_1, userID = varSelectedUser.userID),
+      {
+        fullname: 'Detail.FullName.Input'.Text,
+        email: 'Detail.Email.Input'.Text,
+        departmentID: {
+          Id: varDepartmentLookup.ID,
+          Value: varDepartmentLookup.name
+        },
+        jobTitle: 'Detail.JobTitle.Input'.Text,
+        phone: 'Detail.Phone.Input'.Text
+      }
+    );
+```
+
+**KEY CORRECTIONS**:
+1. `Selected.name` được sử dụng correctly (field name phụ thuộc vào dropdown configuration)
+2. Lookup record được define với ĐÚNG 2 fields: `Id` và `Value` only
+3. Pattern tách biệt lookup creation và patch operation để improve reliability
 
 ### Rule 16: Multiple Lookup Columns Pattern - CRITICAL
 **ALWAYS** handle multiple lookup columns separately when updating SharePoint records:
