@@ -9,9 +9,10 @@
 2. [Collection Creation Rules](#2-collection-creation-rules)
 3. [OnVisible Performance Rules](#3-onvisible-performance-rules)
 4. [Filter Query Restrictions](#4-filter-query-restrictions)
-5. [Control Version Restrictions](#5-control-version-restrictions)
-6. [Implementation Checklist](#6-implementation-checklist)
-7. [Real-World Examples](#7-real-world-examples)
+5. [Delegation Handling Rules](#5-delegation-handling-rules)
+6. [Control Version Restrictions](#6-control-version-restrictions)
+7. [Implementation Checklist](#7-implementation-checklist)
+8. [Real-World Examples](#8-real-world-examples)
 
 ---
 
@@ -233,7 +234,160 @@ Items: =Filter(User_1,
 
 ---
 
-## 5. CONTROL VERSION RESTRICTIONS - CRITICAL ERRORS
+## 5. DELEGATION HANDLING RULES - LARGE DATASET OPTIMIZATION
+
+### Rule 11: AVOID SEARCH() FUNCTION FOR LARGE DATASETS - Delegation Issue
+**NEVER** sử dụng Search() function trên large datasets vì nó không support delegation:
+
+```yaml
+# ❌ FORBIDDEN - Search() không support delegation
+Items: =Filter(SharePointList, 
+  Search(varSearchText, Title, Description, Comments)
+)
+
+# ✅ CORRECT - Use StartsWith() for delegable search
+Items: =Filter(SharePointList,
+  Or(
+    StartsWith(Title, varSearchText),
+    StartsWith(Description, varSearchText),
+    StartsWith(Comments, varSearchText)
+  )
+)
+
+# ✅ ALTERNATIVE - Use "in" operator for delegation
+Items: =Filter(SharePointList,
+  Or(
+    varSearchText in Title,
+    varSearchText in Description,
+    varSearchText in Comments
+  )
+)
+```
+
+**WHY**: Search() function executes client-side và chỉ process 500 records đầu tiên. StartsWith() và "in" operator support delegation và can process unlimited records on server-side.
+
+### Rule 12: PRE-FILTER LARGE DATASETS - Delegation Prevention
+**ALWAYS** lọc dữ liệu trước khi cho phép tìm kiếm để thu gọn tập dữ liệu:
+
+```yaml
+# ✅ CORRECT - Pre-filter with delegation-friendly conditions
+Items: =Filter(SharePointList,
+  And(
+    // Pre-filter: Recent records only (delegable)
+    'Created Date' >= DateAdd(Today(), -30, Days),
+    
+    // Pre-filter: Active status only (delegable) 
+    Status = "Active",
+    
+    // Then apply search (on smaller dataset)
+    Or(
+      IsBlank(varSearchText),
+      varSearchText in Title,
+      varSearchText in Description
+    )
+  )
+)
+
+# ✅ ALTERNATIVE - Use collections for complex search
+OnVisible: |
+  =// Load filtered data into collection first
+  ClearCollect(colFilteredData,
+    Filter(SharePointList,
+      And(
+        'Created Date' >= DateAdd(Today(), -30, Days),
+        Status = "Active"
+      )
+    )
+  );
+
+# Then search in collection (no delegation issues)
+Items: =Filter(colFilteredData,
+  Or(
+    IsBlank(varSearchText),
+    Search(varSearchText, Title, Description, Comments) <> ""
+  )
+)
+```
+
+**WHY**: Pre-filtering reduces dataset size below delegation warning threshold (typically 500-2000 records), allowing complex search operations to work reliably.
+
+### Rule 13: DELEGATION-FRIENDLY SEARCH PATTERNS - Best Practices
+**ALWAYS** design search patterns that work with SharePoint delegation:
+
+```yaml
+# ✅ CORRECT - Multi-field delegable search
+Items: =Filter(SharePointList,
+  And(
+    // Category filter (delegable lookup)
+    Or(
+      IsBlank(varSelectedCategory),
+      varSelectedCategory = "All",
+      Category.Value = varSelectedCategory
+    ),
+    
+    // Date range filter (delegable)
+    'Created Date' >= varStartDate,
+    'Created Date' <= varEndDate,
+    
+    // Text search (delegable with StartsWith or "in")
+    Or(
+      IsBlank(varSearchText),
+      StartsWith(Title, varSearchText),
+      StartsWith(CustomerName, varSearchText)
+    )
+  )
+)
+
+# ✅ ALTERNATIVE - Progressive filtering approach
+OnTextChanged (TextInput): |
+  =If(
+    Len(Self.Text) >= 3,  // Start search after 3 characters
+    ClearCollect(colSearchResults,
+      Filter(SharePointList,
+        And(
+          StartsWith(Title, Self.Text),
+          'Created Date' >= DateAdd(Today(), -90, Days)  // Recent only
+        )
+      )
+    ),
+    ClearCollect(colSearchResults, Blank())  // Clear if less than 3 chars
+  )
+```
+
+**WHY**: Progressive filtering và minimum character requirements reduce server load và ensure responsive user experience with large datasets.
+
+### Rule 14: DELEGATION WARNING MONITORING - Critical Performance
+**ALWAYS** monitor và address delegation warnings:
+
+```yaml
+# ✅ REQUIRED - Check for delegation warnings in Power Apps Studio
+# Look for blue "delegation warning" indicators in formula bar
+
+# ✅ REQUIRED - Use Top() function for large result sets
+Items: =Top(
+  Filter(SharePointList,
+    StartsWith(Title, varSearchText)
+  ),
+  100  // Limit results for performance
+)
+
+# ✅ REQUIRED - Implement "Load More" pattern for pagination
+Items: =Top(
+  Filter(SharePointList,
+    And(
+      StartsWith(Title, varSearchText),
+      ID > varLastLoadedID  // Pagination key
+    )
+  ),
+  varPageSize
+)
+```
+
+**WHY**: Delegation warnings indicate potential performance issues với large datasets. Addressing them ensures consistent app performance regardless of data size.
+
+---
+
+## 6. CONTROL VERSION RESTRICTIONS - CRITICAL ERRORS
 
 ### Rule 10: VERSION NUMBER PROHIBITION - PA2108/PA2109 Prevention
 **NEVER** include version numbers trong ANY control declarations:
@@ -262,6 +416,8 @@ Control: Classic/Button
 - [ ] SharePoint lookup complexity assessment completed
 - [ ] Collection creation strategy planned với error recovery
 - [ ] Filter query field mappings verified against actual SharePoint columns
+- [ ] Delegation analysis completed for large datasets (>500 records)
+- [ ] Search strategy planned with delegation-friendly functions
 - [ ] Control declarations cleaned of version numbers
 - [ ] OnVisible sequence planned với step-by-step approach
 
@@ -276,6 +432,10 @@ Control: Classic/Button
 - [ ] Field references vs string literals trong filters verified (Rule 8)
 - [ ] ThisRecord context used correctly trong Filter operations (Rule 9)
 - [ ] All control declarations version-free (Rule 10)
+- [ ] Search() function avoided for large datasets - use StartsWith() or "in" (Rule 11)
+- [ ] Pre-filtering implemented for datasets >500 records (Rule 12)
+- [ ] Delegation-friendly search patterns implemented (Rule 13)
+- [ ] Delegation warnings monitored and addressed (Rule 14)
 
 ### Testing Requirements:
 - [ ] OnVisible loads without "invalid string in filter query" errors
@@ -283,6 +443,9 @@ Control: Classic/Button
 - [ ] Collections populate correctly with proper schemas
 - [ ] Error recovery triggers appropriately with meaningful messages
 - [ ] Performance acceptable với large datasets (>100 records)
+- [ ] No delegation warnings in Power Apps studio for large datasets
+- [ ] Search operations work efficiently with >500 records
+- [ ] Pre-filtering reduces dataset size appropriately
 - [ ] No PA2108/PA2109 errors trong Power Apps studio
 
 ---
@@ -416,6 +579,121 @@ OnSelect: |
   )
 ```
 
+### Example 4: Delegation-Friendly Search Implementation
+**PROPER DELEGATION HANDLING PATTERN:**
+
+```yaml
+# ✅ CORRECT - Delegation-friendly search for large SharePoint lists
+# Text Input - Search Box
+OnChange: |
+  =If(
+    Len(Self.Text) >= 3,  // Only start search after 3 characters
+    Set(varSearchText, Self.Text),
+    Set(varSearchText, "")
+  )
+
+# Gallery Items - Using delegation-friendly functions
+Items: |
+  =If(
+    IsBlank(varSearchText),
+    // No search - show recent records only (pre-filtered)
+    Top(
+      Filter(SharePointList,
+        And(
+          'Created Date' >= DateAdd(Today(), -30, Days),
+          Status = "Active"
+        )
+      ),
+      100
+    ),
+    
+    // Search mode - delegation-friendly pattern
+    Top(
+      Filter(SharePointList,
+        And(
+          // Pre-filter for better performance
+          'Created Date' >= DateAdd(Today(), -90, Days),
+          Status = "Active",
+          
+          // Delegation-friendly search (avoid Search() function)
+          Or(
+            StartsWith(Title, varSearchText),
+            StartsWith(CustomerName, varSearchText),
+            varSearchText in Description
+          )
+        )
+      ),
+      50  // Limit results for performance
+    )
+  )
+
+# Alternative Pattern - Collection-based for complex searches
+OnVisible: |
+  =// Load recent active data into collection (delegation-friendly)
+  ClearCollect(colRecentData,
+    Filter(SharePointList,
+      And(
+        'Created Date' >= DateAdd(Today(), -60, Days),
+        Status = "Active"
+      )
+    )
+  );
+
+# Then use collection for complex search (no delegation issues)
+Items: |
+  =If(
+    IsBlank(varSearchText),
+    colRecentData,
+    Filter(colRecentData,
+      Or(
+        Search(varSearchText, Title, Description, CustomerName) <> "",
+        StartsWith(Title, varSearchText)
+      )
+    )
+  )
+```
+
+### Example 5: Progressive Loading Pattern for Large Datasets
+**LOAD MORE IMPLEMENTATION:**
+
+```yaml
+# Button - Load More Records
+OnSelect: |
+  =Collect(colDisplayData,
+    Top(
+      Filter(SharePointList,
+        And(
+          ID > Last(colDisplayData).ID,  // Pagination key
+          Status = "Active",
+          Or(
+            IsBlank(varSearchText),
+            StartsWith(Title, varSearchText)
+          )
+        )
+      ),
+      20  // Load 20 more records
+    )
+  );
+  Set(varCanLoadMore, CountRows(
+    Top(Filter(SharePointList, ID > Last(colDisplayData).ID), 1)
+  ) > 0)
+
+# Initial Load
+OnVisible: |
+  =ClearCollect(colDisplayData,
+    Top(
+      Filter(SharePointList,
+        And(
+          Status = "Active",
+          'Created Date' >= DateAdd(Today(), -30, Days)
+        )
+      ),
+      20  // Initial load - 20 records
+    )
+  );
+  Set(varCanLoadMore, CountRows(SharePointList) > 20)
+```
+
 ---
 
 ## 🚨 CRITICAL REMINDER
@@ -427,6 +705,9 @@ OnSelect: |
 3. **PA2109 errors** (Rule 10)
 4. **Type mismatch errors** (Rules 4-5)
 5. **Performance degradation** (Rules 6-7)
+6. **Delegation warnings và poor performance** với large datasets (Rules 11-14)
+7. **Timeout errors** when Search() function used on >500 records
+8. **Inconsistent results** due to delegation limits
 
 **SUCCESS METRICS:**
 - ✅ Zero "invalid string in filter query" errors
@@ -434,5 +715,8 @@ OnSelect: |
 - ✅ Proper error recovery với meaningful user messages
 - ✅ Fast OnVisible loading (< 3 seconds for 100+ records)
 - ✅ Reliable filter operations với actual SharePoint data
+- ✅ Zero delegation warnings cho large datasets (>500 records)
+- ✅ Consistent search performance regardless of dataset size
+- ✅ Efficient search operations using StartsWith() và "in" operators
 
 **ENFORCEMENT:** These rules MUST be followed trong all SharePoint-connected Power App projects. No exceptions.
