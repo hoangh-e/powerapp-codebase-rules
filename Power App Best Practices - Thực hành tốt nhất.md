@@ -15,7 +15,8 @@
 **NEW SharePoint & Form Management:**
 - [SharePoint Data Management](#44-sharepoint-data-management)
 - [Form Reset and State Management](#54-form-reset-and-state-management)
-- [Modal and Context Menu Patterns](#55-modal-and-context-menu-patterns)
+- [Error Recovery Patterns](#55-error-recovery-patterns)
+- [Modal and Context Menu Patterns](#56-modal-and-context-menu-patterns)
 
 ---
 
@@ -373,7 +374,70 @@ OnSelect: |
 ```
 
 ### 4.4 SharePoint Data Management - CRITICAL
-**IMPLEMENT** proper SharePoint CRUD operations:
+**IMPLEMENT** proper SharePoint CRUD operations và avoid critical errors từ UserManagementScreen project:
+
+#### 4.4.0 SharePoint Lookup Restrictions - CRITICAL ERROR SOURCE
+**NEVER** sử dụng nested LookUp() trong AddColumns() với SharePoint data (Rule 1):
+
+```yaml
+# ❌ FORBIDDEN - Causes "invalid string in filter query"
+ClearCollect(colUsers, 
+  AddColumns(User_1, 
+    "Role", 
+    LookUp(Role_1, roleID = LookUp(User_Role, userID = ThisRecord.userID).roleID).name
+  )
+)
+
+# ✅ CORRECT - Step-by-step approach  
+ClearCollect(colUsers, User_1);
+ClearCollect(colUsers,
+  AddColumns(colUsers,
+    "Role",
+    LookUp(Role_1, 
+      roleID = LookUp(User_Role, userID = ThisRecord.userID).roleID
+    ).name
+  )
+)
+```
+
+**NEVER** sử dụng nested With() trong SharePoint AddColumns() (Rule 2):
+
+```yaml
+# ❌ FORBIDDEN - SharePoint parsing error
+AddColumns(User_1,
+  "Department",
+  With({dept: LookUp(Department_1, departmentID = ThisRecord.departmentID)}, 
+    If(IsBlank(dept), "Unknown", dept.name)
+  )
+)
+
+# ✅ CORRECT - Direct lookup with null checking
+AddColumns(User_1,
+  "Department",
+  If(
+    Not(IsBlank(LookUp(Department_1, departmentID = ThisRecord.departmentID))),
+    LookUp(Department_1, departmentID = ThisRecord.departmentID).name,
+    "Unknown"
+  )
+)
+```
+
+**ALWAYS** separate complex SharePoint operations into multiple steps (Rule 3):
+
+```yaml
+# ❌ AVOID - Complex single operation
+ClearCollect(colUsers, 
+  AddColumns(
+    AddColumns(User_1, "Department", DeptLookup),
+    "Role", RoleLookup
+  )
+)
+
+# ✅ REQUIRED - Step-by-step approach
+ClearCollect(colUsers, User_1);
+ClearCollect(colUsers, AddColumns(colUsers, "Department", DeptLookup));
+ClearCollect(colUsers, AddColumns(colUsers, "Role", RoleLookup));
+```
 
 #### 4.4.1 SharePoint Create Operations
 ```yaml
@@ -600,7 +664,54 @@ OnSelect: |
       Color: =RGBA(220, 53, 69, 1)
 ```
 
-### 5.5 Modal and Context Menu Patterns - CRITICAL
+### 5.5 Error Recovery Patterns - CRITICAL (Rule 7)
+**MANDATORY** implementation error recovery cho SharePoint operations:
+
+```yaml
+# ✅ REQUIRED - Error-safe SharePoint operations
+IfError(
+  ClearCollect(colUsers, 
+    AddColumns(User_1, "Department", DepartmentLookup)
+  ),
+  // Fallback: Keep basic user data
+  ClearCollect(colUsers, User_1);
+  Notify("Could not load department info", NotificationType.Warning)
+)
+
+# ✅ REQUIRED - Complex operation với multiple error points
+IfError(
+  // Step 1: Load base data
+  ClearCollect(colUsers, User_1);
+  // Step 2: Add department lookups
+  ClearCollect(colUsers, AddColumns(colUsers, "Department", DeptLookup));
+  // Step 3: Add role lookups
+  ClearCollect(colUsers, AddColumns(colUsers, "Role", RoleLookup)),
+  
+  // Fallback strategy
+  ClearCollect(colUsers, User_1);
+  Set(varErrorMessage, "Partial data load: " & FirstError.Message);
+  Notify("Some data couldn't be loaded", NotificationType.Warning)
+)
+
+# ✅ REQUIRED - Form submission error recovery
+IfError(
+  Patch(User_1, Defaults(User_1), {
+    userID: newUserID,
+    fullname: 'FullName.Input'.Text,
+    email: 'Email.Input'.Text
+  }),
+  Set(varErrorMessage, FirstError.Message);
+  Notify("Create failed: " & FirstError.Message, NotificationType.Error),
+  
+  // Success path
+  Set(varShowUserForm, false);
+  Notify("User created successfully!", NotificationType.Success);
+  // Refresh data
+  ClearCollect(colUsers, User_1)
+)
+```
+
+### 5.6 Modal and Context Menu Patterns - CRITICAL
 **IMPLEMENT** proper modal và context menu patterns:
 
 #### 5.5.1 Modal Positioning Best Practices

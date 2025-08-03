@@ -10,6 +10,10 @@
 3. [Control Z-Index & Rendering Order](#3-control-z-index--rendering-order)
 4. [Control Variants](#4-control-variants)
 
+**UPDATED Control Property Rules:**
+- [Control Properties Restrictions - Rule 10](#20-control-properties-restrictions---critical-rule-10)
+- [Version Number Prohibition](#201-version-number-prohibition---all-controls)
+
 **NEW DataTable Rules:**
 - [DataTable vs Gallery Decision Rules](#18-datatable-vs-gallery-decision-rules)
 - [DataTable Control Structure](#19-datatable-control-structure)
@@ -318,16 +322,24 @@ Properties:
 
 ### 1.11 CRITICAL DATATABLE ERRORS
 
-#### 1.11.1 Version Number Error
-```yaml
-# ❌ SAI - Version numbers
-Control: DataTable@1.0.3
-Control: DataTableColumn@1.0.1
+#### 1.11.1 Version Number Prohibition - PA2108/PA2109 Prevention (Rule 10)
+**NEVER** include version numbers trong ANY control declarations:
 
-# ✅ ĐÚNG - No version numbers
+```yaml
+# ❌ FORBIDDEN - Causes PA2108 errors
+Control: DataTable@1.0.3
+Control: DataTableColumn@1.0.1  
+Control: GroupContainer@1.3.0
+Control: Classic/Button@2.2.0
+
+# ✅ REQUIRED - No version numbers
 Control: DataTable
 Control: DataTableColumn
+Control: GroupContainer  
+Control: Classic/Button
 ```
+
+**CRITICAL**: This applies to ALL controls, not just DataTable. Version numbers cause parsing errors and are never supported trong Power Apps YAML format.
 
 #### 1.11.2 Missing Required Properties
 ```yaml
@@ -696,6 +708,41 @@ Screen có:
 ---
 
 ## 2. CONTROL PROPERTIES RESTRICTIONS
+
+### 2.0 Control Properties Restrictions - CRITICAL (Rule 10)
+**MANDATORY**: Follow these universal control restrictions để prevent PA2108/PA2109 errors:
+
+#### 2.0.1 Version Number Prohibition - ALL CONTROLS
+**NEVER** include version numbers trong ANY control declarations:
+
+```yaml
+# ❌ FORBIDDEN - Causes PA2108/PA2109 errors
+Control: DataTable@1.0.3        # Error: PA2108
+Control: DataTableColumn@1.0.1   # Error: PA2109  
+Control: GroupContainer@1.3.0    # Error: PA2108
+Control: Classic/Button@2.2.0    # Error: PA2108
+Control: Classic/TextInput@1.5.1 # Error: PA2108
+Control: Rectangle@2.1.0         # Error: PA2108
+
+# ✅ REQUIRED - Clean control names only
+Control: DataTable
+Control: DataTableColumn
+Control: GroupContainer  
+Control: Classic/Button
+Control: Classic/TextInput
+Control: Rectangle
+```
+
+#### 2.0.2 Universal Property Restrictions
+**NEVER** use these properties on ANY control unless explicitly documented:
+
+```yaml
+# ❌ FORBIDDEN - Universal restrictions
+Columns: =3          # Not supported on Form/FormViewer controls
+Version: ="1.0"      # Never specify version properties
+@version: ="1.0.3"   # Never use @ syntax with controls
+Variant: ="Custom"   # Custom variants not supported (PA2109)
+```
 
 ### 2.1 Rectangle Control - CẤM SỬ DỤNG
 **Rectangle Control** - KHÔNG BAO GIỜ sử dụng những properties này:

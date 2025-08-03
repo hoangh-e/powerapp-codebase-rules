@@ -15,7 +15,9 @@
 **NEW DataTable & SharePoint Rules:**
 - [DataTable Filter Context Rules](#68-datatable-filter-context-rules)
 - [SharePoint Lookup Patterns](#69-sharepoint-lookup-patterns)
-- [SharePoint UserID Generation Rules](#610-sharepoint-userid-generation-rules)
+- [SharePoint Filter Context Rules](#610-sharepoint-filter-context-rules)
+- [Collection Creation Anti-Patterns](#611-collection-creation-anti-patterns)
+- [SharePoint UserID Generation Rules](#612-sharepoint-userid-generation-rules)
 
 ---
 
@@ -447,7 +449,83 @@ roleID: ='Role.Dropdown'.Selected.roleID
 departmentID: =LookUp(Department, name = 'Department.Dropdown'.Selected.Name).departmentID
 ```
 
-### 6.10 SharePoint UserID Generation Rules - CRITICAL
+### 6.10 SharePoint Filter Context Rules - CRITICAL (Rules 8-9)
+**NEVER** sử dụng string literals trong filter field references (Rule 8):
+
+```yaml
+# ❌ FORBIDDEN - Causes filter parsing error
+Items: =Filter(colUsers, 
+  Or(varSearchText in "FullName", varSearchText in "Email")
+)
+
+# ✅ REQUIRED - Use actual field names
+Items: =Filter(colUsers, 
+  Or(varSearchText in fullname, varSearchText in email)
+)
+
+# ✅ REQUIRED - For added columns
+Items: =Filter(colUsers, 
+  Or(varSearchText in fullname, varSearchText in Department)
+)
+```
+
+**ALWAYS** sử dụng ThisRecord trong Filter() context với SharePoint (Rule 9):
+
+```yaml
+# ✅ CORRECT - Filter với SharePoint lookups
+Items: =Filter(User_1, 
+  And(
+    varSearchText in fullname,
+    LookUp(Department_1, departmentID = ThisRecord.departmentID).name = varSelectedDept
+  )
+)
+
+# ❌ WRONG - Disambiguation operator trong Filter context
+Items: =Filter(User_1,
+  LookUp(Department_1, departmentID = User_1[@departmentID]).name = varSelectedDept
+)
+```
+
+### 6.11 Collection Creation Anti-Patterns - CRITICAL (Rules 4-5)
+**NEVER** sử dụng Concat() để combine tables (Rule 4):
+
+```yaml
+# ❌ FORBIDDEN - Concat() is for text, not tables
+ClearCollect(colFilter,
+  Concat(
+    Table({name: "Tất cả"}),
+    AddColumns(Source_1, "name", name)
+  )
+)
+
+# ✅ CORRECT - Use separate operations
+ClearCollect(colFilter, {name: "Tất cả"});
+Collect(colFilter, ForAll(Source_1, {name: name}));
+
+# ✅ ALTERNATIVE - Multiple records in ClearCollect
+ClearCollect(colFilter,
+  Table({name: "Tất cả"}),
+  ForAll(Source_1, {name: name})
+)
+```
+
+**ALWAYS** ensure schema compatibility when combining Table() và ForAll() (Rule 5):
+
+```yaml
+# ✅ CORRECT - Consistent schema
+ClearCollect(colFilter,
+  Table({name: "Tất cả"}),      # Schema: {name: Text}
+  ForAll(Source_1, {name: name}) # Schema: {name: Text}
+)
+
+# ❌ AVOID - Schema mismatch risk
+ClearCollect(colFilter,
+  {name: "Tất cả"},              # Direct record
+  ForAll(Source_1, {name: name}) # Collection of records
+)
+```
+
+### 6.12 SharePoint UserID Generation Rules - CRITICAL
 **CRITICAL**: SharePoint tables cần unique userID, KHÔNG sử dụng user input làm primary key:
 
 ```yaml
